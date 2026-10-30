@@ -15,6 +15,12 @@
   /* ヘッダー */
   .top { position:relative; height:56px; display:flex; align-items:center; justify-content:center; }
   .ttl { font-size:17px; font-weight:800; }
+  .reload { position:absolute; left:8px; top:8px; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--sub); cursor:pointer; transition:transform .45s cubic-bezier(.2,.8,.2,1), color .2s; }
+  .reload:active { transform:rotate(-180deg); color:var(--green); }
+  .sync { position:absolute; right:12px; top:12px; min-width:72px; border:1px solid var(--field); background:#fff; color:var(--sub); border-radius:16px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .sync.on { background:var(--green); border-color:var(--green); color:#fff; }
+  .toast { position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:rgba(34,34,34,.88); color:#fff; font-size:13px; padding:9px 16px; border-radius:18px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:10; white-space:nowrap; }
+  .toast.on { opacity:1; }
   .x { position:absolute; right:8px; top:8px; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
   .pad { padding:4px 16px 12px; }
   .cta { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--green); color:#fff; border:0; border-radius:6px; padding:15px; font-size:16px; font-weight:700; cursor:pointer; }
@@ -94,7 +100,13 @@
 
   <!-- 一覧(履歴/レポート) -->
   <section id="list" class="screen on">
-    <div class="top"><div class="ttl">レシート</div></div>
+    <div class="top">
+      <button class="reload" id="reloadBtn" title="最新に更新" aria-label="最新に更新">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <div class="ttl">レシート</div>
+      <button class="sync" id="syncBtn" style="display:none">同期</button>
+    </div>
     <div class="pad">
       <button class="cta" id="snap">
         <svg viewBox="0 0 24 24" fill="#fff"><path d="M9 4l-1.5 2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.5L15 4zM12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
@@ -141,7 +153,12 @@
   </section>
 
 </div>
+<div class="toast" id="toast"></div>
 
+<!-- Firebase (同期用。読み込めない時はローカルのみで動作) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 const CATS = ["食費","日用品","外食","交通","衣類","医療","その他"];
 const CAT_COLOR = { "食費":"#06c755", "日用品":"#ffab5e", "外食":"#f5586a", "交通":"#2e8bff", "衣類":"#c86dd7", "医療":"#ff7bac", "その他":"#a0a7b0" };
@@ -162,15 +179,20 @@ const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; 
 let receipts = load(KEY, null);
 let learned = load(LKEY, {});
 let customCats = load("cats.v1", []);
+let updatedAt = Number(localStorage.getItem("receipts.updatedAt") || 0), applyingRemote = false;
 if (!receipts) {
   receipts = [
     { id:1, store:"サンプルマート", date:today(0), total:582, items:[{n:"牛乳",p:198,c:"食費"},{n:"食パン",p:158,c:"食費"},{n:"洗剤",p:226,c:"日用品"}] },
     { id:2, store:"サンプルドラッグ", date:today(-3), total:980, items:[{n:"ティッシュ",p:480,c:"日用品"},{n:"シャンプー",p:500,c:"日用品"}] },
   ];
-  persist();
+  saveLocal();   // サンプルは「編集した」扱いにしない(更新時刻は0のまま。クラウドを上書きしないため)
 }
 function today(offset){ const d=new Date(); d.setDate(d.getDate()+offset); return d.toISOString().slice(0,10); }
-function persist(){ localStorage.setItem(KEY, JSON.stringify(receipts)); localStorage.setItem(LKEY, JSON.stringify(learned)); localStorage.setItem("cats.v1", JSON.stringify(customCats)); }
+function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(receipts)); localStorage.setItem(LKEY, JSON.stringify(learned)); localStorage.setItem("cats.v1", JSON.stringify(customCats)); localStorage.setItem("receipts.updatedAt", String(updatedAt)); }
+// 変更を保存する: 端末に保存 → 更新時刻を進める → ログイン中ならクラウドにも上げる
+function persist(){ if (!applyingRemote) updatedAt = Date.now(); saveLocal(); if (!applyingRemote) pushToCloud(); }
+let toastTimer = null;
+function showToast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"), 2200); }
 const $ = id => document.getElementById(id);
 const yen = n => Number(n||0).toLocaleString() + "円";
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -305,6 +327,105 @@ $("save").onclick = () => {
 };
 
 renderList();
+
+/* ===== クラウド同期 (Firebase + Googleログイン) ===== */
+// そろそろ・とりあえずと同じFirebaseプロジェクトを使い、保存先だけ別(apps/receipts)
+const firebaseConfig = {
+  apiKey: "AIzaSyC6KM0ZiG4boea6h8KL7lGEnREC2Itm9oY",
+  authDomain: "cycle-tracker-app-77383.firebaseapp.com",
+  projectId: "cycle-tracker-app-77383",
+  storageBucket: "cycle-tracker-app-77383.firebasestorage.app",
+  messagingSenderId: "217290900134",
+  appId: "1:217290900134:web:2c6d1a37ca964e2749ea67"
+};
+let fbUser = null, fbDb = null, fbUnsub = null;
+
+$("reloadBtn").onclick = () => location.reload();
+
+(function initSync() {
+  if (typeof firebase === "undefined") return; // SDK未読込(オフライン等)→ローカルのみ
+  try {
+    firebase.initializeApp(firebaseConfig);
+    fbDb = firebase.firestore();
+    firebase.auth().getRedirectResult().catch(() => {});
+    firebase.auth().onAuthStateChanged(onAuthChanged);
+  } catch (e) { console.warn("sync init failed", e); }
+  const btn = $("syncBtn");
+  btn.style.display = "inline-block";
+  btn.onclick = onSyncClick;
+  renderSyncUI();
+})();
+
+function dataDoc(){ return fbDb.collection("users").doc(fbUser.uid).collection("apps").doc("receipts"); }
+// Firestoreは空のキーを持てないので、learned は配列にして送る
+function cloudData(){
+  return JSON.parse(JSON.stringify({
+    receipts, customCats, updatedAt,
+    learned: Object.entries(learned).filter(([n])=>n).map(([n,c])=>({n,c})),
+  }));
+}
+
+function onAuthChanged(user){
+  fbUser = user;
+  renderSyncUI();
+  if (fbUnsub) { fbUnsub(); fbUnsub = null; }
+  if (user) startSync();
+}
+
+function startSync(){
+  dataDoc().get().then(snap => {
+    const remote = snap.exists ? snap.data() : null;
+    const remoteAt = remote ? (remote.updatedAt || 0) : -1;
+    if (remote && remoteAt >= updatedAt) applyRemote(remote);
+    else if (updatedAt > 0) pushToCloud();   // ローカルが新しい/クラウドが空 → 上げる(一度も編集していないサンプルは上げない)
+    fbUnsub = dataDoc().onSnapshot(s => {
+      if (!s.exists) return;
+      const r = s.data();
+      if ((r.updatedAt || 0) > updatedAt) applyRemote(r);
+    });
+  }).catch(e => { console.warn(e); showToast("同期の読み込みに失敗"); });
+}
+
+function applyRemote(r){
+  applyingRemote = true;
+  receipts = r.receipts || [];
+  customCats = r.customCats || [];
+  learned = Object.fromEntries((r.learned || []).map(x => [x.n, x.c]));
+  updatedAt = r.updatedAt || Date.now();
+  saveLocal(); renderList();
+  applyingRemote = false;
+  showToast("同期で最新になりました");
+}
+
+function pushToCloud(){
+  if (!fbUser || !fbDb) return;
+  try { dataDoc().set(cloudData()); }
+  catch (e) { console.warn("push failed", e); }
+}
+
+function renderSyncUI(){
+  const btn = $("syncBtn");
+  if (fbUser) { btn.textContent = "同期中"; btn.classList.add("on"); btn.title = (fbUser.email || "") + " / タップでログアウト"; }
+  else { btn.textContent = "同期"; btn.classList.remove("on"); btn.title = "Googleでログインして同期"; }
+}
+
+function onSyncClick(){
+  if (typeof firebase === "undefined") { showToast("同期にはネット接続が必要です"); return; }
+  if (fbUser) {
+    if (confirm("同期をオフにしますか?(ログアウト)\n記録はこの端末に残ります")) firebase.auth().signOut();
+    return;
+  }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(err => {
+    const code = err && err.code;
+    if (code === "auth/popup-blocked" || code === "auth/cancelled-popup-request" || code === "auth/operation-not-supported-in-this-environment" || code === "auth/popup-closed-by-user") {
+      firebase.auth().signInWithRedirect(provider);
+    } else {
+      console.warn(err);
+      showToast("ログインできませんでした");
+    }
+  });
+}
 </script>
 </body>
 </html>
