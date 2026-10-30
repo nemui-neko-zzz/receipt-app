@@ -14,7 +14,7 @@
 
   /* ヘッダー */
   /* ヘッダーは3列(左 / タイトル / 右)。重ならず、タイトルは常に中央。幅375px(iPhone 13 mini)を基準にする */
-  .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:56px; padding:calc(env(safe-area-inset-top, 0px) + 14px) 8px 0 8px; }   /* 上の端はiPhoneがぼかすので、14px下げる */
+  .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:56px; padding:calc(env(safe-area-inset-top, 0px) + 32px) 8px 0 8px; }   /* 上の端はiPhoneがぼかすので、「とりあえず」と同じ32px下げる */
   .ttl { grid-column:2; font-size:17px; font-weight:700; white-space:nowrap; }
   .reload { grid-column:1; justify-self:start; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--sub); cursor:pointer; transition:transform .45s cubic-bezier(.2,.8,.2,1), color .2s; }
   .reload:active { transform:rotate(-180deg); color:var(--green); }
