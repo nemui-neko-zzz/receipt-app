@@ -13,15 +13,18 @@
   .screen { display:none; } .screen.on { display:block; }
 
   /* ヘッダー */
-  .top { position:relative; height:56px; display:flex; align-items:center; justify-content:center; }
-  .ttl { font-size:17px; font-weight:800; }
-  .reload { position:absolute; left:8px; top:8px; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--sub); cursor:pointer; transition:transform .45s cubic-bezier(.2,.8,.2,1), color .2s; }
+  /* ヘッダーは3列(左 / タイトル / 右)。重ならず、タイトルは常に中央。幅375px(iPhone 13 mini)を基準にする */
+  .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:56px; padding:env(safe-area-inset-top) 8px 0 8px; }
+  .ttl { grid-column:2; font-size:17px; font-weight:800; white-space:nowrap; }
+  .reload { grid-column:1; justify-self:start; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--sub); cursor:pointer; transition:transform .45s cubic-bezier(.2,.8,.2,1), color .2s; }
   .reload:active { transform:rotate(-180deg); color:var(--green); }
-  .sync { position:absolute; right:12px; top:12px; min-width:72px; border:1px solid var(--field); background:#fff; color:var(--sub); border-radius:16px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .sync { grid-column:3; justify-self:end; margin-right:4px; min-width:72px; border:1px solid var(--field); background:#fff; color:var(--sub); border-radius:16px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
   .sync.on { background:var(--green); border-color:var(--green); color:#fff; }
+  .foot { text-align:center; padding:40px 16px calc(28px + env(safe-area-inset-bottom)); font-size:12px; color:var(--light); }
+  .foot button { background:none; border:0; color:var(--sub); font-size:12px; padding:6px 8px; cursor:pointer; text-decoration:underline; }
   .toast { position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:rgba(34,34,34,.88); color:#fff; font-size:13px; padding:9px 16px; border-radius:18px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:10; white-space:nowrap; }
   .toast.on { opacity:1; }
-  .x { position:absolute; right:8px; top:8px; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
+  .x { grid-column:3; justify-self:end; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
   .pad { padding:4px 16px 12px; }
   .cta { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--green); color:#fff; border:0; border-radius:6px; padding:15px; font-size:16px; font-weight:700; cursor:pointer; }
   .cta svg { width:20px; height:20px; }
@@ -80,18 +83,32 @@
   .form label.lb { display:block; font-size:13px; color:var(--sub); margin:20px 0 8px; }
   .field { width:100%; border:1px solid var(--field); background:#fff; border-radius:6px; padding:14px; font-size:16px; color:var(--text); outline:none; }
   .field:focus { border-color:var(--green); }
+  /* 日付・時刻の欄: iPhoneでは幅が内容に引っ張られるので、他の欄と同じ幅・高さに固定する */
+  .field[type=datetime-local] { -webkit-appearance:none; appearance:none; display:block; min-width:0; max-width:100%; height:50px; line-height:20px; text-align:left; }
+  .field[type=datetime-local]::-webkit-date-and-time-value { text-align:left; }
   .item { display:grid; grid-template-columns:1fr 96px 28px; gap:8px 8px; align-items:center; margin-bottom:14px; }
   .item .price { text-align:right; }
   .item select { grid-column:1; justify-self:start; border:1px solid var(--line); background:var(--bg); border-radius:14px; padding:6px 12px; font-size:13px; color:var(--sub); outline:none; }
-  .minus { width:24px; height:24px; border-radius:50%; border:0; background:#c8c8c8; color:#fff; font-size:18px; line-height:1; cursor:pointer; padding:0; }
+  /* −と+は文字ではなく線で描く(文字だとフォントによって中心からずれる) */
+  .minus { position:relative; width:24px; height:24px; border-radius:50%; border:0; background:#c8c8c8; cursor:pointer; padding:0; }
+  .minus::before, .add i::before, .add i::after { content:""; position:absolute; left:50%; top:50%; width:12px; height:2px; background:#fff; border-radius:1px; transform:translate(-50%,-50%); }
+  .add i::after { transform:translate(-50%,-50%) rotate(90deg); }
   .add { display:flex; align-items:center; gap:8px; background:none; border:0; color:var(--light); font-size:15px; padding:6px 0; cursor:pointer; }
-  .add i { width:24px; height:24px; border-radius:50%; background:#c8c8c8; color:#fff; font-style:normal; font-size:18px; line-height:24px; text-align:center; }
+  .add i { position:relative; display:block; width:24px; height:24px; border-radius:50%; background:#c8c8c8; }
   .sumrow { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); margin-top:16px; padding-top:18px; }
   .sumrow span { font-weight:800; font-size:15px; }
   .sumrow input { width:150px; text-align:right; font-size:20px; font-weight:800; }
   .warn { margin-top:8px; font-size:12px; color:#d0463b; }
   .note { margin-top:10px; font-size:12px; color:var(--sub); }
-  .thumb { width:100%; max-height:200px; object-fit:contain; background:#222; display:block; }
+  .thumb { width:100%; max-height:200px; object-fit:contain; background:#222; display:block; cursor:zoom-in; }
+  .thumbhint { text-align:center; font-size:11px; color:var(--light); padding:6px 0 0; }
+  .viewer { position:fixed; inset:0; z-index:20; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .viewer[hidden] { display:none; }
+  .viewer img { max-width:100%; max-height:calc(100% - 96px); object-fit:contain; }
+  .vx { position:absolute; top:calc(8px + env(safe-area-inset-top)); right:8px; width:40px; height:40px; background:rgba(255,255,255,.18); border:0; border-radius:50%; color:#fff; font-size:24px; line-height:1; cursor:pointer; }
+  .vbar { position:absolute; left:0; right:0; bottom:0; display:flex; gap:10px; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .vbar .btn { background:rgba(255,255,255,.14); border-color:transparent; color:#fff; }
+  .vbar .btn.main { background:var(--green); }
   .actions { position:sticky; bottom:0; display:flex; gap:10px; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:#fff; border-top:1px solid var(--line); }
 </style>
 </head>
@@ -122,6 +139,10 @@
     <div class="searchrow" id="searchRow" hidden><input id="q" type="search" placeholder="店名・商品名・ジャンルで探す"></div>
     <div class="monthbar"><select id="month"></select></div>
     <div id="view"></div>
+    <div class="foot">
+      <button id="bkSave">バックアップを保存</button><span>|</span><button id="bkLoad">バックアップから戻す</button>
+      <input type="file" id="bkFile" accept="application/json,.json" hidden>
+    </div>
   </section>
 
   <!-- 詳細 -->
@@ -133,15 +154,16 @@
   <!-- 確認・編集 -->
   <section id="edit" class="screen">
     <div class="top"><div class="ttl">レシートを確認</div><button class="x" id="cancel" aria-label="閉じる">×</button></div>
-    <img id="thumb" class="thumb" alt="" hidden>
+    <img id="thumb" class="thumb" alt="レシートの写真" hidden>
+    <div class="thumbhint" id="thumbHint" hidden>写真をタップすると大きく見られます</div>
     <div class="form">
       <label class="lb" style="margin-top:8px">スポット名</label>
       <input class="field" id="eStore">
       <label class="lb">購入日</label>
-      <input class="field" id="eDate" type="date">
+      <input class="field" id="eDate" type="datetime-local">
       <label class="lb">品目 / 金額 / ジャンル</label>
       <div id="items"></div>
-      <button class="add" id="addItem"><i>+</i>品目を追加</button>
+      <button class="add" id="addItem"><i></i>品目を追加</button>
       <div class="sumrow"><span>合計</span><input class="field" id="eTotal" type="number" inputmode="numeric"></div>
       <div class="warn" id="warn" hidden></div>
       <div class="note" id="note"></div>
@@ -152,6 +174,11 @@
     </div>
   </section>
 
+</div>
+<div class="viewer" id="viewer" hidden>
+  <button class="vx" id="vClose" aria-label="閉じる">×</button>
+  <img id="vImg" alt="レシートの写真">
+  <div class="vbar"><button class="btn" id="vRetake">撮り直す</button><button class="btn main" id="vOk">閉じる</button></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -187,7 +214,10 @@ if (!receipts) {
   ];
   saveLocal();   // サンプルは「編集した」扱いにしない(更新時刻は0のまま。クラウドを上書きしないため)
 }
-function today(offset){ const d=new Date(); d.setDate(d.getDate()+offset); return d.toISOString().slice(0,10); }
+// 日付・時刻は端末のローカル時間で作る(toISOStringだとUTCになり、朝9時前に日付がずれる)
+const p2 = n => String(n).padStart(2,"0");
+function today(offset){ const d=new Date(); d.setDate(d.getDate()+offset); return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); }
+function nowTime(){ const d=new Date(); return p2(d.getHours())+":"+p2(d.getMinutes()); }
 function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(receipts)); localStorage.setItem(LKEY, JSON.stringify(learned)); localStorage.setItem("cats.v1", JSON.stringify(customCats)); localStorage.setItem("receipts.updatedAt", String(updatedAt)); }
 // 変更を保存する: 端末に保存 → 更新時刻を進める → ログイン中ならクラウドにも上げる
 function persist(){ if (!applyingRemote) updatedAt = Date.now(); saveLocal(); if (!applyingRemote) pushToCloud(); }
@@ -222,7 +252,7 @@ function renderList(){
 function histHTML(){
   const q = $("q").value.trim();
   const list = receipts.filter(r => q ? (r.store.includes(q) || r.items.some(i=>i.n.includes(q)||i.c.includes(q))) : r.date.startsWith(month))
-                       .sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id);
+                       .sort((a,b)=> b.date.localeCompare(a.date) || (b.time||"").localeCompare(a.time||"") || b.id-a.id);
   if (!list.length) return '<div class="empty">'+(q?"見つかりませんでした":"まだレシートがありません")+'</div>';
   let html = "", last = "";
   for (const r of list) {
@@ -256,7 +286,7 @@ let detailRec = null;
 function openDetail(r){
   detailRec = r;
   $("dCard").innerHTML =
-    '<div class="hd"><div class="st">'+esc(r.store)+'</div><div class="dt">'+r.date.replace(/-/g,".")+'</div></div>'+
+    '<div class="hd"><div class="st">'+esc(r.store)+'</div><div class="dt">'+r.date.replace(/-/g,".")+(r.time?" "+r.time:"")+'</div></div>'+
     '<div class="its">'+r.items.map(i=>'<div class="it"><span>'+esc(i.n)+'</span><b>'+yen(i.p)+'</b></div>').join("")+'</div>'+
     '<div class="tt"><span>合計</span><b>'+yen(r.total)+'</b></div>'+
     '<div class="btns"><button class="btn" id="dDel">削除</button><button class="btn" id="dEdit">編集</button></div>';
@@ -268,12 +298,17 @@ $("dClose").onclick = () => show("list");
 function removeReceipt(id){ if (confirm("このレシートを削除しますか?")) { receipts = receipts.filter(r=>r.id!==id); persist(); renderList(); show("list"); } }
 
 // ---- 撮影(お試し版: 読み取りはまだ。サンプル結果を出す) ----
-$("snap").onclick = () => $("file").click();
+let retaking = false;
+$("snap").onclick = () => { retaking = false; $("file").click(); };
 $("file").onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   const url = URL.createObjectURL(f);
+  if (retaking) {   // 撮り直し: 写真だけ差し替える(今の入力は消さない。読み取りが入ったら、ここで読み直す)
+    retaking = false; URL.revokeObjectURL($("thumb").src); $("thumb").src = url;
+    e.target.value = ""; showToast("写真を撮り直しました"); return;
+  }
   const items = [{n:"牛乳",p:198},{n:"食パン",p:158},{n:"洗剤",p:226}].map(i=>({...i,c:guess(i.n)}));
-  openEdit({ id:null, store:"(読み取り結果の例)ストア", date:today(0), total:582, items }, url);
+  openEdit({ id:null, store:"(読み取り結果の例)ストア", date:today(0), time:nowTime(), total:582, items }, url);
   e.target.value = "";
 };
 
@@ -281,8 +316,8 @@ $("file").onchange = e => {
 let cur = null;
 function openEdit(r, img){
   cur = JSON.parse(JSON.stringify(r));
-  $("eStore").value = cur.store; $("eDate").value = cur.date; $("eTotal").value = cur.total;
-  $("thumb").hidden = !img; if (img) $("thumb").src = img;
+  $("eStore").value = cur.store; $("eDate").value = cur.date + "T" + (cur.time || "00:00"); $("eTotal").value = cur.total;
+  $("thumb").hidden = !img; $("thumbHint").hidden = !img; if (img) $("thumb").src = img;
   $("remove").textContent = cur.id === null ? "やめる" : "削除";
   $("note").textContent = cur.id === null ? "※お試し版: 読み取りはまだ入っていません。これはサンプルの結果です。" : "";
   renderItems(); show("edit");
@@ -293,7 +328,7 @@ function renderItems(){
   $("items").innerHTML = cur.items.map((it,i)=>
     '<div class="item"><input class="field" data-i="'+i+'" data-f="n" placeholder="品目" value="'+esc(it.n)+'">'+
     '<input class="field price" data-i="'+i+'" data-f="p" type="number" inputmode="numeric" value="'+it.p+'">'+
-    '<button class="minus" data-del="'+i+'" aria-label="この品目を消す">−</button>'+
+    '<button class="minus" data-del="'+i+'" aria-label="この品目を消す"></button>'+
     '<select data-i="'+i+'" data-f="c">'+cats.map(c=>'<option'+(c===it.c?' selected':'')+'>'+esc(c)+'</option>').join("")+'<option value="__new">＋ 新しく追加</option></select></div>').join("");
   checkTotal();
 }
@@ -315,12 +350,23 @@ $("items").addEventListener("input", e => {
   if (t.dataset.f==="c") learned[cur.items[i].n] = t.value;  // 直したジャンルを覚える
   if (t.dataset.f==="p") checkTotal();
 });
-$("items").addEventListener("click", e => { const d = e.target.dataset.del; if (d!==undefined){ cur.items.splice(d,1); renderItems(); } });
+$("items").addEventListener("click", e => {
+  const d = e.target.dataset.del; if (d===undefined) return;
+  const it = cur.items[d];
+  // 中身のある品目は、確認してから消す(空の行はそのまま消す)
+  if ((it.n || Number(it.p)) && !confirm("「" + (it.n || "名前なし") + "」を消しますか?")) return;
+  cur.items.splice(d,1); renderItems();
+});
 $("addItem").onclick = () => { cur.items.push({n:"",p:0,c:"その他"}); renderItems(); const f = $("items").querySelector(".item:last-child input"); if (f) f.focus(); };
-$("cancel").onclick = () => show(cur && cur.id !== null ? "detail" : "list");
+// 写真を大きく見る(ここから撮り直しもできる)
+$("thumb").onclick = () => { $("vImg").src = $("thumb").src; $("viewer").hidden = false; };
+const closeViewer = () => { $("viewer").hidden = true; };
+$("vClose").onclick = closeViewer; $("vOk").onclick = closeViewer;
+$("vRetake").onclick = () => { closeViewer(); retaking = true; $("file").click(); };
+$("cancel").onclick =() => show(cur && cur.id !== null ? "detail" : "list");
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
 $("save").onclick = () => {
-  cur.store = $("eStore").value.trim() || "(店名なし)"; cur.date = $("eDate").value || today(0); cur.total = Number($("eTotal").value||0);
+  cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0);
   if (cur.id === null) { cur.id = Date.now(); receipts.push(cur); }
   else receipts = receipts.map(r=>r.id===cur.id ? cur : r);
   persist(); month = cur.date.slice(0,7); renderList(); show("list");
@@ -341,6 +387,28 @@ const firebaseConfig = {
 let fbUser = null, fbDb = null, fbUnsub = null;
 
 $("reloadBtn").onclick = () => location.reload();
+
+/* ===== バックアップ(JSONファイルに保存 / 読み込んで戻す) ===== */
+$("bkSave").onclick = () => {
+  const data = { app:"receipts", version:1, exportedAt:new Date().toISOString(), ...cloudData() };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type:"application/json" }));
+  a.download = "receipts-backup-" + today(0) + ".json";
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast("バックアップを保存しました");
+};
+$("bkLoad").onclick = () => $("bkFile").click();
+$("bkFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (d.app !== "receipts" || !Array.isArray(d.receipts)) throw new Error("format");
+    if (!confirm("今の記録(" + receipts.length + "件)を、バックアップの内容(" + d.receipts.length + "件)に置き換えますか?")) return;
+    receipts = d.receipts; customCats = d.customCats || [];
+    learned = Object.fromEntries((d.learned || []).map(x => [x.n, x.c]));
+    persist(); renderList(); showToast("バックアップから戻しました");
+  } catch { showToast("このファイルは読み込めませんでした"); }
+};
 
 (function initSync() {
   if (typeof firebase === "undefined") return; // SDK未読込(オフライン等)→ローカルのみ
