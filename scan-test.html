@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>かざして自動撮影(試作)</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#111; color:#eee; font-family:-apple-system,"Hiragino Sans",sans-serif; }
+  .wrap { max-width:560px; margin:0 auto; padding:12px; }
+  .stage { position:relative; width:100%; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:3/4; }
+  video, canvas { position:absolute; inset:0; width:100%; height:100%; }
+  #flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity .35s; }
+  .bar { height:6px; background:#333; border-radius:3px; margin:10px 0 4px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:#4ec38a; transition:width .2s; }
+  .status { font-size:13px; color:#aaa; min-height:2.6em; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:8px 0; font-size:13px; }
+  button { background:#2f7d5b; color:#fff; border:0; border-radius:10px; padding:12px 20px; font-size:15px; cursor:pointer; }
+  button.sub { background:#333; }
+  label { display:flex; align-items:center; gap:6px; }
+  #result { display:none; margin-top:12px; }
+  #result img { width:100%; border-radius:8px; }
+  #result pre { white-space:pre-wrap; font-size:12px; background:#1c1c1c; padding:10px; border-radius:8px; max-height:220px; overflow:auto; }
+  .legend span { margin-right:10px; } .g{color:#4ec38a} .y{color:#e6c34a} .r{color:#e5604f}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage" id="stage">
+    <video id="video" playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <div id="flash"></div>
+  </div>
+  <div class="bar"><i id="prog"></i></div>
+  <div class="status" id="status">「はじめる」を押してください</div>
+  <div class="row legend"><span class="g">■ 読めている</span><span class="y">■ あやしい</span><span class="r">■ 読みにくい</span></div>
+  <div class="row">
+    <button id="start">はじめる</button>
+    <button id="redo" class="sub" hidden>もう一度</button>
+    <label><input type="checkbox" id="showBoxes" checked>枠を表示</label>
+    <label>安定とみなす秒数 <input type="number" id="secs" value="5" min="1" max="15" style="width:52px"></label>
+  </div>
+  <div id="result">
+    <img id="shot" alt="">
+    <pre id="text"></pre>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const video = $("video"), overlay = $("overlay"), octx = overlay.getContext("2d");
+const work = document.createElement("canvas"), wctx = work.getContext("2d");
+const OCR_WIDTH = 900;      // OCRに渡す画像の横幅(大きいほど正確だが遅い)
+let worker = null, running = false, audio = null;
+let lastSig = null, stableSince = 0;
+
+// ---- 音: 音声ファイルなしで、その場で作る ----
+function beep(){
+  if (!audio) return;
+  const t = audio.currentTime;
+  [[880,0],[1320,0.09]].forEach(([f,d]) => {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = "triangle"; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t+d); g.gain.linearRampToValueAtTime(0.35, t+d+0.01); g.gain.exponentialRampToValueAtTime(0.001, t+d+0.18);
+    o.connect(g).connect(audio.destination); o.start(t+d); o.stop(t+d+0.2);
+  });
+}
+
+// ---- 起動 ----
+$("start").onclick = async () => {
+  $("start").disabled = true;
+  audio = new (window.AudioContext || window.webkitAudioContext)();   // 音はボタンを押した操作の中で準備する
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment", width:{ideal:1920} }, audio:false });
+    video.srcObject = stream; await video.play();
+  } catch (e) { $("status").textContent = "カメラを使えませんでした: " + e.message + "(https か localhost で開く必要があります)"; $("start").disabled = false; return; }
+  $("stage").style.aspectRatio = video.videoWidth + "/" + video.videoHeight;
+  $("status").textContent = "文字を読む準備中…(初回は日本語データの読み込みで少しかかります)";
+  worker = await Tesseract.createWorker("jpn");
+  $("start").hidden = true; running = true; resetStable(); loop();
+};
+$("redo").onclick = () => { $("result").style.display = "none"; $("redo").hidden = true; running = true; resetStable(); loop(); };
+
+function resetStable(){ lastSig = null; stableSince = 0; $("prog").style.width = "0"; }
+
+// ---- 毎回の読み取り ----
+async function loop(){
+  while (running) {
+    const t0 = performance.now();
+    const scale = OCR_WIDTH / video.videoWidth;
+    work.width = OCR_WIDTH; work.height = Math.round(video.videoHeight * scale);
+    wctx.drawImage(video, 0, 0, work.width, work.height);
+    const { data } = await worker.recognize(work);
+    if (!running) break;
+    const lines = (data.lines || []).filter(l => l.text.trim().length > 1);
+    drawBoxes(lines);
+    judge(lines, data.text, scale);
+    const spent = performance.now() - t0;
+    await new Promise(r => setTimeout(r, Math.max(0, 600 - spent)));
+  }
+}
+
+function drawBoxes(lines){
+  overlay.width = overlay.clientWidth * devicePixelRatio; overlay.height = overlay.clientHeight * devicePixelRatio;
+  octx.clearRect(0,0,overlay.width,overlay.height);
+  if (!$("showBoxes").checked) return;
+  const k = overlay.width / work.width;
+  octx.lineWidth = 2 * devicePixelRatio;
+  for (const l of lines) {
+    const c = l.confidence, color = c >= 80 ? "#4ec38a" : c >= 60 ? "#e6c34a" : "#e5604f";
+    octx.strokeStyle = color;
+    octx.strokeRect(l.bbox.x0*k, l.bbox.y0*k, (l.bbox.x1-l.bbox.x0)*k, (l.bbox.y1-l.bbox.y0)*k);
+  }
+}
+
+// ---- 安定判定 ----
+// 条件: 「合計」があり、金額らしい数字が3つ以上あり、その数字の並びが指定秒数ずっと変わらない
+function judge(lines, fullText){
+  const flat = fullText.replace(/\s+/g, "");
+  const nums = (flat.match(/\d[\d,]{1,}/g) || []).map(s => s.replace(/,/g,""));
+  const hasTotal = /合計|合\s*計|小計|お買上/.test(flat);
+  const avg = lines.length ? lines.reduce((s,l)=>s+l.confidence,0)/lines.length : 0;
+  const ok = hasTotal && nums.length >= 3 && avg >= 60;
+  const sig = ok ? nums.join("|") : null;
+  const need = Number($("secs").value) * 1000;
+  const now = performance.now();
+
+  if (!sig) { resetStable(); $("status").textContent = "レシートを探しています…(「合計」と金額が読めると始まります)"; return; }
+  if (sig !== lastSig) { lastSig = sig; stableSince = now; }
+  const held = now - stableSince;
+  $("prog").style.width = Math.min(100, held / need * 100) + "%";
+  $("status").textContent = "読めています。動かさずに待ってください…(金額 " + nums.length + "個 / 平均の自信 " + Math.round(avg) + ")";
+  if (held >= need) capture(fullText);
+}
+
+function capture(text){
+  running = false; beep();
+  $("flash").style.opacity = 1; setTimeout(() => $("flash").style.opacity = 0, 80);
+  const c = document.createElement("canvas"); c.width = video.videoWidth; c.height = video.videoHeight;
+  c.getContext("2d").drawImage(video, 0, 0);
+  $("shot").src = c.toDataURL("image/jpeg", 0.9);
+  $("text").textContent = text;
+  $("result").style.display = "block"; $("redo").hidden = false;
+  $("status").textContent = "撮影しました。読み取り結果が下にあります。";
+  octx.clearRect(0,0,overlay.width,overlay.height);
+}
+</script>
+</body>
+</html>
