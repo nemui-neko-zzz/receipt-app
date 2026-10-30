@@ -7,15 +7,15 @@
 <style>
   :root { --green:#06c755; --text:#222; --sub:#777; --light:#b5b5b5; --line:#e6e6e6; --field:#d9d9d9; --bg:#f5f5f5; }
   * { box-sizing:border-box; }
-  body { margin:0; background:#fff; color:var(--text); font-family:-apple-system,"Hiragino Sans",sans-serif; }
+  body { margin:0; background:#fff; color:var(--text); font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif; -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%; }
   button, input, select { font-family:inherit; }
   .app { max-width:560px; margin:0 auto; min-height:100vh; background:#fff; }
   .screen { display:none; } .screen.on { display:block; }
 
   /* ヘッダー */
   /* ヘッダーは3列(左 / タイトル / 右)。重ならず、タイトルは常に中央。幅375px(iPhone 13 mini)を基準にする */
-  .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:56px; padding:env(safe-area-inset-top) 8px 0 8px; }
-  .ttl { grid-column:2; font-size:17px; font-weight:800; white-space:nowrap; }
+  .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:56px; padding:calc(env(safe-area-inset-top, 0px) + 14px) 8px 0 8px; }   /* 上の端はiPhoneがぼかすので、14px下げる */
+  .ttl { grid-column:2; font-size:17px; font-weight:700; white-space:nowrap; }
   .reload { grid-column:1; justify-self:start; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--sub); cursor:pointer; transition:transform .45s cubic-bezier(.2,.8,.2,1), color .2s; }
   .reload:active { transform:rotate(-180deg); color:var(--green); }
   .sync { grid-column:3; justify-self:end; margin-right:4px; min-width:72px; border:1px solid var(--field); background:#fff; color:var(--sub); border-radius:16px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
@@ -38,27 +38,27 @@
   .iconbtn { background:none; border:0; padding:6px; cursor:pointer; color:var(--text); }
   .iconbtn svg { width:24px; height:24px; display:block; }
   .monthbar { padding:4px 16px 0; }
-  .monthbar select { appearance:none; -webkit-appearance:none; border:0; background:none; font-size:17px; font-weight:800; color:var(--text); padding:6px 22px 6px 0;
+  .monthbar select { appearance:none; -webkit-appearance:none; border:0; background:none; font-size:17px; font-weight:700; color:var(--text); padding:6px 22px 6px 0;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23222' stroke-width='2'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right center; }
   .searchrow { padding:8px 16px 0; }
   .searchrow input { width:100%; border:1px solid var(--field); border-radius:6px; padding:11px 12px; font-size:15px; outline:none; }
 
   /* 履歴 */
-  .day { padding:26px 16px 8px; font-size:14px; font-weight:800; }
+  .day { padding:26px 16px 8px; font-size:14px; font-weight:700; }
   .hrow { display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; }
   .hrow .ico svg { width:22px; height:22px; display:block; }
   .hrow .hs { flex:1; font-size:15px; color:var(--sub); }
-  .hrow .ha { font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .hrow .ha { font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; }
   .empty { text-align:center; color:var(--light); padding:60px 16px; font-size:14px; }
 
   /* レポート */
-  .head { padding:20px 16px 0; font-size:24px; font-weight:800; line-height:1.4; }
+  .head { padding:20px 16px 0; font-size:24px; font-weight:700; line-height:1.4; }
   .donut { display:block; width:240px; height:240px; margin:16px auto 8px; }
   .crow { display:flex; align-items:center; gap:12px; padding:14px 16px; }
   .dot { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .dot svg { width:20px; height:20px; display:block; }
   .crow .cn { flex:1; font-size:14px; color:var(--sub); }
-  .crow .ca { font-size:18px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .crow .ca { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
 
   /* 詳細カード */
   .graybg { background:var(--bg); padding:12px; min-height:calc(100vh - 56px); }
@@ -67,11 +67,11 @@
   .card .hd .st { font-size:16px; color:var(--sub); }
   .card .hd .dt { font-size:13px; color:var(--light); margin-top:4px; }
   .card .it { display:flex; justify-content:space-between; padding:10px 16px; font-size:14px; color:var(--sub); }
-  .card .it b { color:var(--text); font-weight:800; }
+  .card .it b { color:var(--text); font-weight:700; }
   .card .its { padding:10px 0; border-bottom:1px solid var(--line); }
   .card .tt { display:flex; justify-content:space-between; align-items:baseline; padding:16px; }
-  .card .tt span { font-weight:800; font-size:15px; }
-  .card .tt b { font-size:22px; font-weight:800; }
+  .card .tt span { font-weight:700; font-size:15px; }
+  .card .tt b { font-size:22px; font-weight:700; }
   .btns { display:flex; gap:10px; padding:0 16px 16px; }
 
   /* ボタン */
@@ -96,8 +96,8 @@
   .add { display:flex; align-items:center; gap:8px; background:none; border:0; color:var(--light); font-size:15px; padding:6px 0; cursor:pointer; }
   .add i { position:relative; display:block; width:24px; height:24px; border-radius:50%; background:#c8c8c8; }
   .sumrow { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); margin-top:16px; padding-top:18px; }
-  .sumrow span { font-weight:800; font-size:15px; }
-  .sumrow input { width:150px; text-align:right; font-size:20px; font-weight:800; }
+  .sumrow span { font-weight:700; font-size:15px; }
+  .sumrow input { width:150px; text-align:right; font-size:20px; font-weight:700; }
   .warn { margin-top:8px; font-size:12px; color:#d0463b; }
   .note { margin-top:10px; font-size:12px; color:var(--sub); }
   .thumb { width:100%; max-height:200px; object-fit:contain; background:#222; display:block; cursor:zoom-in; }
@@ -272,7 +272,7 @@ function reportHTML(){
   const arcs = entries.map(([c,v]) => { const len = v/total*C; const s = '<circle cx="100" cy="100" r="'+R+'" fill="none" stroke="'+catColor(c)+'" stroke-width="34" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 100 100)"/>'; off += len; return s; }).join("");
   const rows = entries.map(([c,v]) => '<div class="crow"><div class="dot" style="background:'+catColor(c)+'">'+icon(c,"#fff")+'</div><div class="cn">'+esc(c)+' '+Math.round(v/total*100)+'%</div><div class="ca">'+yen(v)+'</div></div>').join("");
   return '<div class="head">'+label+'のレシートの支出は<br>'+yen(total)+'です</div>'+
-    '<svg class="donut" viewBox="0 0 200 200">'+arcs+'<text x="100" y="106" text-anchor="middle" font-size="16" font-weight="800" fill="#222">'+mNum+'月</text></svg>'+rows;
+    '<svg class="donut" viewBox="0 0 200 200">'+arcs+'<text x="100" y="106" text-anchor="middle" font-size="16" font-weight="700" fill="#222">'+mNum+'月</text></svg>'+rows;
 }
 $("tabReport").onclick = () => { tab="report"; renderList(); };
 $("tabHist").onclick = () => { tab="hist"; renderList(); };
