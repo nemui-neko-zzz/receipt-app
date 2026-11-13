@@ -452,7 +452,7 @@ function parseReceiptText(raw, knownStores) {
     const HEADER = /登録番号|TEL|電話|\d{4}[\/年.\-]\d{1,2}[\/月.\-]\d{1,2}|\d{1,2}:\d{2}|領収|納品書|レシート|レジ|会員|カード|X{4,}|\*{4,}|^No\.?\s*\d+/;
     let start = 0;
     lines.slice(0, end).forEach((l, i) => { if (HEADER.test(l)) start = i + 1; });
-    const NOISE = /承認|番号|区分|支払|一括|会員|カード|ビザ|マスター|APL|AID|CREDIT|伝票|売上|日時|クレジット|ご利用|ありがとう|税|対象|明細|通り|軽減|レジ|責|領収|納品|登録|様|係員|端末|通番|有効期限/;   // レシートの定型文は、商品名にしない
+    const NOISE = /値引|割引|クーポン|承認|番号|区分|支払|一括|会員|カード|ビザ|マスター|APL|AID|CREDIT|伝票|売上|日時|クレジット|ご利用|ありがとう|税|対象|明細|通り|軽減|レジ|責|領収|納品|登録|様|係員|端末|通番|有効期限/;   // レシートの定型文は、商品名にしない
     const PRICE = /^¥?\s*(\d{1,3}(?:,\d{3})+|\d{2,6})\s*円?\s*[※*軽]?$/;                  // 金額だけの行
     const SAME = /^(.*?[^\d\s¥,.])\s*¥?\s*(\d{1,3}(?:,\d{3})+|\d{2,6})\s*[※*軽]?$/;      // 「商品名 金額」の行
     const isName = l => /[ぁ-んァ-ン一-龥A-Za-z]{2,}/.test(l) && !/^[@¥]/.test(l) && !/^\d+(\.\d+)?\s*[A-Za-zコ個点本袋枚]/.test(l) && !/X{4,}|\*{4,}/.test(l) && !NOISE.test(l);
@@ -467,7 +467,17 @@ function parseReceiptText(raw, knownStores) {
     if (same.length) items.push(...same);                                                                         // 同じ行に商品名と金額
     else if (prices.length && names.length === prices.length) names.forEach((n, i) => items.push({ n, p: prices[i] }));   // 商品名の列と金額の列が別々でも、数が合えば順に組にする
     else if (!prices.length && names.length === 1 && total !== null) items.push({ n: names[0], p: total });   // 金額が別の場所に出て見つからないが、商品名が1つだけなら、合計を金額にする
-    else { let pending = null; seq.forEach(x => { if (x.n !== undefined) pending = x.n; else if (pending !== null) { items.push({ n: pending, p: x.p }); pending = null; } }); }   // 数が合わなければ、金額の直前の商品名と組にする
+    else { let pending = null, last = null; seq.forEach(x => { if (x.n !== undefined) { pending = x.n; last = null; } else if (pending !== null) { last = { n: pending, p: x.p }; items.push(last); pending = null; } else if (last) last.p = Math.max(last.p, x.p); }); }   // 数が合わなければ、金額の直前の商品名と組にする。金額が2つ続くとき(単価と金額)は、大きい方を金額にする
+    // 値引き: 「値引」「割引」「クーポン」の行(か、その次の行)にマイナスの金額があれば、マイナスの品目にして、合計と合うようにする
+    if (items.length) {
+      const gIdx = lines.findIndex(l => /合計/.test(l)), dEnd = gIdx >= 0 ? gIdx : lines.length;
+      const neg = /[-−▲△]\s*¥?\s*(\d[\d,]*)/;
+      for (let i = start; i < dEnd; i++) {
+        if (!/値引|割引|クーポン/.test(lines[i])) continue;
+        const m = neg.exec(lines[i]) || (lines[i + 1] && /^[-−▲△]\s*¥?\s*(\d[\d,]*)/.exec(lines[i + 1]));
+        if (m) items.push({ n: lines[i].replace(neg, "").replace(/^[（(]/, "").replace(/\d+円?\s*$/, "").replace(/[）)]\s*$/, "").trim() || "値引き", p: -num(m[1]) });
+      }
+    }
   }
   // 店名検索の手がかり: 電話番号(TEL表記を優先)・住所(都道府県から番地まで)・インボイス登録番号
   const phone = ((/(?:TEL|Tel|tel|電話)[:：]?(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nf) || /(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nf)) || [])[1] || "";
@@ -480,7 +490,7 @@ function parseReceiptText(raw, knownStores) {
 // ---- 文字から追加(貼り付け / ショートカットからのリンク) ----
 function startFromText(text){
   const r = parseReceiptText(text, receipts.map(x => x.store));
-  const items = r.items.length ? r.items.map(i => ({...i, c:guess(i.n)})) : [{ n:"", p:r.total || 0, c:"その他" }];
+  const items = r.items.length ? r.items.map((i, k, a) => ({...i, c: i.p < 0 && k > 0 ? guess(a[k-1].n) : guess(i.n)})) : [{ n:"", p:r.total || 0, c:"その他" }];
   const mine = storeMap[r.phone] || storeMap[r.reg] || "";   // 前に確認した店なら、その名前
   openEdit({ id:null, store:mine || r.store, phone:r.phone, reg:r.reg, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items }, null);
   $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "");
