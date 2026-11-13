@@ -38,6 +38,7 @@
   .x { grid-column:3; justify-self:end; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
   .pad { padding:4px 16px 12px; }
   .cta { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--green); color:#fff; border:0; border-radius:6px; padding:15px; font-size:16px; font-weight:700; cursor:pointer; }
+  a.cta { text-decoration:none; }
   .cta svg { width:20px; height:20px; }
   .mini { display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--sub); text-decoration:none; }
   .cands { margin-top:8px; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
@@ -52,7 +53,7 @@
   /* レポート/履歴の切替 */
   .tabs { display:flex; align-items:center; justify-content:space-between; padding:8px 16px; }
   .seg { display:inline-flex; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:3px; }
-  .seg button { border:0; background:none; padding:7px 18px; border-radius:6px; font-size:14px; color:var(--sub); cursor:pointer; }
+  .seg button { width:92px; border:0; background:none; padding:7px 0; text-align:center; border-radius:6px; font-size:14px; color:var(--sub); cursor:pointer; }
   .seg button.on { background:var(--green); color:#fff; }
   .iconbtn { background:none; border:0; padding:6px; cursor:pointer; color:var(--text); }
   .iconbtn svg { width:24px; height:24px; display:block; }
@@ -119,15 +120,6 @@
   .sumrow input { width:150px; text-align:right; font-size:20px; font-weight:700; }
   .warn { margin-top:8px; font-size:12px; color:#d0463b; }
   .note { margin-top:10px; font-size:12px; color:var(--sub); }
-  .thumb { width:100%; max-height:200px; object-fit:contain; background:#222; display:block; cursor:zoom-in; }
-  .thumbhint { text-align:center; font-size:11px; color:var(--light); padding:6px 0 0; }
-  .viewer { position:fixed; inset:0; z-index:20; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .viewer[hidden] { display:none; }
-  .viewer img { max-width:100%; max-height:calc(100% - 96px); object-fit:contain; }
-  .vx { position:absolute; top:calc(8px + env(safe-area-inset-top)); right:8px; width:40px; height:40px; background:rgba(255,255,255,.18); border:0; border-radius:50%; color:#fff; font-size:24px; line-height:1; cursor:pointer; }
-  .vbar { position:absolute; left:0; right:0; bottom:0; display:flex; gap:10px; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); }
-  .vbar .btn { background:rgba(255,255,255,.14); border-color:transparent; color:#fff; }
-  .vbar .btn.main { background:var(--green); }
   .actions { margin-top:auto; position:sticky; bottom:0; display:flex; gap:10px; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:#fff; border-top:1px solid var(--line); }
 </style>
 </head>
@@ -144,17 +136,13 @@
       <button class="sync" id="syncBtn" style="display:none">同期</button>
     </div>
     <div class="pad">
-      <button class="cta" id="snap">
+      <a class="cta" id="scLink" href="#">
         <svg viewBox="0 0 24 24" fill="#fff"><path d="M9 4l-1.5 2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.5L15 4zM12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
         レシートを撮影する
-      </button>
-      <a class="mini" id="scLink" href="#">ショートカットで読み取る</a>
-      <button class="mini" id="pasteOpen">文字を貼り付けて追加</button>
-      <a class="mini" href="scan-test.html">かざして自動撮影(試作)</a>
-      <input type="file" id="file" accept="image/*" capture="environment" hidden>
+      </a>
     </div>
     <div class="tabs">
-      <div class="seg"><button id="tabReport">レポート</button><button id="tabHist" class="on">履歴</button></div>
+      <div class="seg"><button id="tabHist" class="on">履歴</button><button id="tabReport">レポート</button></div>
       <button class="iconbtn" id="searchBtn" aria-label="検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16 16l5 5"/></svg></button>
     </div>
     <div class="searchrow" id="searchRow" hidden><input id="q" type="search" placeholder="店名・商品名・ジャンルで探す"></div>
@@ -172,23 +160,9 @@
     <div class="graybg"><div class="card" id="dCard"></div></div>
   </section>
 
-  <!-- 文字から追加 -->
-  <section id="paste" class="screen">
-    <div class="top"><div class="ttl">文字から追加</div><button class="x" id="pasteClose" aria-label="閉じる">×</button></div>
-    <div class="form">
-      <label class="lb" style="margin-top:8px">読み取った文字</label>
-      <textarea class="field" id="pasteText" rows="10" placeholder="写真アプリのライブテキストで選んでコピーした文字を、ここに貼り付けます"></textarea>
-      <button class="add" id="pasteFromClip" style="margin-top:8px">コピーした文字を貼り付ける</button>
-      <div class="note">店名・日付・時刻・合計金額を取り出して、確認画面に出します。間違いは、確認画面で直せます。</div>
-    </div>
-    <div class="actions"><button class="btn main" id="pasteGo">読み取る</button></div>
-  </section>
-
   <!-- 確認・編集 -->
   <section id="edit" class="screen">
     <div class="top"><div class="ttl">レシートを確認</div><button class="x" id="cancel" aria-label="閉じる">×</button></div>
-    <img id="thumb" class="thumb" alt="レシートの写真" hidden>
-    <div class="thumbhint" id="thumbHint" hidden>写真をタップすると大きく見られます</div>
     <div class="form">
       <label class="lb" style="margin-top:8px">スポット名</label>
       <input class="field" id="eStore">
@@ -208,11 +182,6 @@
     </div>
   </section>
 
-</div>
-<div class="viewer" id="viewer" hidden>
-  <button class="vx" id="vClose" aria-label="閉じる">×</button>
-  <img id="vImg" alt="レシートの写真">
-  <div class="vbar"><button class="btn" id="vRetake">撮り直す</button><button class="btn main" id="vOk">閉じる</button></div>
 </div>
 <div class="banner" id="scBanner" hidden><span>ショートカットで読み取った文字を取り込みますか?</span><button id="scTake">取り込む</button><button id="scClose" aria-label="閉じる">×</button></div>
 <div class="toast" id="toast"></div>
@@ -340,28 +309,12 @@ function openDetail(r){
 $("dClose").onclick = () => show("list");
 function removeReceipt(id){ if (confirm("このレシートを削除しますか?")) { receipts = receipts.filter(r=>r.id!==id); persist(); renderList(); show("list"); } }
 
-// ---- 撮影(お試し版: 読み取りはまだ。サンプル結果を出す) ----
-let retaking = false;
-$("snap").onclick = () => { retaking = false; $("file").click(); };
-$("file").onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  const url = URL.createObjectURL(f);
-  if (retaking) {   // 撮り直し: 写真だけ差し替える(今の入力は消さない。読み取りが入ったら、ここで読み直す)
-    retaking = false; URL.revokeObjectURL($("thumb").src); $("thumb").src = url;
-    e.target.value = ""; showToast("写真を撮り直しました"); return;
-  }
-  const items = [{n:"牛乳",p:198},{n:"食パン",p:158},{n:"洗剤",p:226}].map(i=>({...i,c:guess(i.n)}));
-  openEdit({ id:null, store:"(読み取り結果の例)ストア", date:today(0), time:nowTime(), total:582, items }, url);
-  e.target.value = "";
-};
-
 // ---- 確認・編集 ----
 let cur = null;
 function openEdit(r, img){
   cur = JSON.parse(JSON.stringify(r));
   candToken++; $("storeCands").hidden = true;
   $("eStore").value = cur.store; $("eDate").value = cur.date + "T" + (cur.time || "00:00"); $("eTotal").value = cur.total;
-  $("thumb").hidden = !img; $("thumbHint").hidden = !img; if (img) $("thumb").src = img;
   $("remove").textContent = cur.id === null ? "やめる" : "削除";
   $("note").textContent = cur.id === null ? "※お試し版: 読み取りはまだ入っていません。これはサンプルの結果です。" : "";
   renderItems(); show("edit");
@@ -402,11 +355,6 @@ $("items").addEventListener("click", e => {
   cur.items.splice(d,1); renderItems();
 });
 $("addItem").onclick = () => { cur.items.push({n:"",p:0,c:"その他"}); renderItems(); const f = $("items").querySelector(".item:last-child input"); if (f) f.focus(); };
-// 写真を大きく見る(ここから撮り直しもできる)
-$("thumb").onclick = () => { $("vImg").src = $("thumb").src; $("viewer").hidden = false; };
-const closeViewer = () => { $("viewer").hidden = true; };
-$("vClose").onclick = closeViewer; $("vOk").onclick = closeViewer;
-$("vRetake").onclick = () => { closeViewer(); retaking = true; $("file").click(); };
 $("cancel").onclick =() => show(cur && cur.id !== null ? "detail" : "list");
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
 $("save").onclick = () => {
@@ -568,13 +516,6 @@ $("homeTitle").addEventListener("click", () => {
   titleTaps++; clearTimeout(titleTimer); titleTimer = setTimeout(() => { titleTaps = 0; }, 1500);
   if (titleTaps >= 5) { titleTaps = 0; openKeySetting(); }
 });
-$("pasteOpen").onclick = () => { $("pasteText").value = ""; show("paste"); };
-$("pasteClose").onclick = () => show("list");
-$("pasteFromClip").onclick = () => {
-  if (!navigator.clipboard || !navigator.clipboard.readText) { showToast("入力欄を長押しして、貼り付けてください"); return; }
-  navigator.clipboard.readText().then(t => { $("pasteText").value = t; }).catch(() => showToast("入力欄を長押しして、貼り付けてください"));
-};
-$("pasteGo").onclick = () => { const t = $("pasteText").value.trim(); if (!t) { showToast("文字を貼り付けてください"); return; } startFromText(t); };
 // ショートカットから「…/index.html#t=読み取った文字」で開かれたとき
 const qResult = new URLSearchParams(location.search).get("result");
 if (qResult) { history.replaceState(null, "", location.pathname); localStorage.removeItem("scWait"); startFromText(qResult); }
