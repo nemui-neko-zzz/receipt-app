@@ -6,7 +6,9 @@
 <title>レシート</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="レシート">
-<!-- あえて apple-mobile-web-app-capable は付けない: 付けると「別のアプリ扱い」になり、Safariとデータが分かれて、ショートカットから戻ったときにつながらなくなる -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">   <!-- ホーム画面から開くと、ブラウザの枠なしの全画面になる(Safariとは保存データが別になる) -->
 <style>
   :root { --green:#06c755; --text:#222; --sub:#777; --light:#b5b5b5; --line:#e6e6e6; --field:#d9d9d9; --bg:#f5f5f5; }
   * { box-sizing:border-box; }
@@ -26,6 +28,11 @@
   .foot { margin-top:auto; text-align:center; padding:24px 16px calc(20px + env(safe-area-inset-bottom)); font-size:12px; color:var(--light); }
   .foot button { background:none; border:0; color:var(--sub); font-size:12px; padding:6px 8px; cursor:pointer; text-decoration:underline; }
   #homeTitle { touch-action:manipulation; -webkit-user-select:none; user-select:none; }
+  .banner { position:fixed; left:12px; right:12px; bottom:calc(16px + env(safe-area-inset-bottom)); max-width:536px; margin:0 auto; background:#222; color:#fff; border-radius:12px; padding:10px 8px 10px 16px; display:flex; align-items:center; gap:8px; font-size:14px; z-index:15; }
+  .banner[hidden] { display:none; }
+  .banner span { flex:1; }
+  .banner button { border:0; border-radius:8px; padding:9px 14px; font-size:14px; background:var(--green); color:#fff; cursor:pointer; }
+  .banner #scClose { background:none; color:#ccc; font-size:20px; padding:4px 10px; }
   .toast { position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:rgba(34,34,34,.88); color:#fff; font-size:13px; padding:9px 16px; border-radius:18px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:10; white-space:nowrap; }
   .toast.on { opacity:1; }
   .x { grid-column:3; justify-self:end; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
@@ -207,6 +214,7 @@
   <img id="vImg" alt="レシートの写真">
   <div class="vbar"><button class="btn" id="vRetake">撮り直す</button><button class="btn main" id="vOk">閉じる</button></div>
 </div>
+<div class="banner" id="scBanner" hidden><span>ショートカットで読み取った文字を取り込みますか?</span><button id="scTake">取り込む</button><button id="scClose" aria-label="閉じる">×</button></div>
 <div class="toast" id="toast"></div>
 
 <!-- Firebase (同期用。読み込めない時はローカルのみで動作) -->
@@ -569,14 +577,31 @@ $("pasteFromClip").onclick = () => {
 $("pasteGo").onclick = () => { const t = $("pasteText").value.trim(); if (!t) { showToast("文字を貼り付けてください"); return; } startFromText(t); };
 // ショートカットから「…/index.html#t=読み取った文字」で開かれたとき
 const qResult = new URLSearchParams(location.search).get("result");
-if (qResult) { history.replaceState(null, "", location.pathname); startFromText(qResult); }
+if (qResult) { history.replaceState(null, "", location.pathname); localStorage.removeItem("scWait"); startFromText(qResult); }
 else if (location.hash.startsWith("#t=")) {
   let t = ""; try { t = decodeURIComponent(location.hash.slice(3)); } catch {}
   history.replaceState(null, "", location.pathname + location.search);
   if (t) startFromText(t);
 }
 // 「ショートカットで読み取る」: ショートカットアプリを呼び出し、読んだ文字を付けてこのページに戻ってもらう
-$("scLink").href = "shortcuts://x-callback-url/run-shortcut?name=" + encodeURIComponent("レシート読み取り") + "&x-success=" + encodeURIComponent(location.origin + location.pathname);
+const isStandalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+const scName = encodeURIComponent("レシート読み取り");
+$("scLink").href = isStandalone
+  ? "shortcuts://run-shortcut?name=" + scName   // 全画面のアプリ: 戻り先がSafariになってしまうので、結果はクリップボード経由で受け取る
+  : "shortcuts://x-callback-url/run-shortcut?name=" + scName + "&x-success=" + encodeURIComponent(location.origin + location.pathname);
+$("scLink").addEventListener("click", () => localStorage.setItem("scWait", String(Date.now())));
+// ショートカットから戻ってきたら「取り込む」を出す(クリップボードの文字を読むには、タップが必要)
+function checkScWait(){ const t = Number(localStorage.getItem("scWait") || 0); $("scBanner").hidden = !(t && Date.now() - t < 10 * 60 * 1000); }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkScWait(); });
+window.addEventListener("pageshow", checkScWait);
+$("scTake").onclick = () => {
+  if (!navigator.clipboard || !navigator.clipboard.readText) { showToast("「文字を貼り付けて追加」から貼り付けてください"); return; }
+  navigator.clipboard.readText().then(t => {
+    localStorage.removeItem("scWait"); $("scBanner").hidden = true;
+    if (t.trim()) startFromText(t); else showToast("コピーされた文字がありません");
+  }).catch(() => showToast("貼り付けを許可してください"));
+};
+$("scClose").onclick = () => { localStorage.removeItem("scWait"); $("scBanner").hidden = true; };
 
 /* ===== クラウド同期 (Firebase + Googleログイン) ===== */
 // そろそろ・とりあえずと同じFirebaseプロジェクトを使い、保存先だけ別(apps/receipts)
