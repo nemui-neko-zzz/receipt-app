@@ -22,6 +22,7 @@
   .sync.on { background:var(--green); border-color:var(--green); color:#fff; }
   .foot { text-align:center; padding:40px 16px calc(28px + env(safe-area-inset-bottom)); font-size:12px; color:var(--light); }
   .foot button { background:none; border:0; color:var(--sub); font-size:12px; padding:6px 8px; cursor:pointer; text-decoration:underline; }
+  #homeTitle { touch-action:manipulation; -webkit-user-select:none; user-select:none; }
   .toast { position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:rgba(34,34,34,.88); color:#fff; font-size:13px; padding:9px 16px; border-radius:18px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:10; white-space:nowrap; }
   .toast.on { opacity:1; }
   .x { grid-column:3; justify-self:end; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
@@ -129,7 +130,7 @@
       <button class="reload" id="reloadBtn" title="最新に更新" aria-label="最新に更新">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
       </button>
-      <div class="ttl">レシート</div>
+      <div class="ttl" id="homeTitle">レシート</div>
       <button class="sync" id="syncBtn" style="display:none">同期</button>
     </div>
     <div class="pad">
@@ -150,7 +151,7 @@
     <div class="monthbar"><select id="month"></select></div>
     <div id="view"></div>
     <div class="foot">
-      <button id="bkSave">バックアップを保存</button><span>|</span><button id="bkLoad">バックアップから戻す</button><span>|</span><button id="keySet">店名検索の設定</button>
+      <button id="bkSave">バックアップを保存</button><span>|</span><button id="bkLoad">バックアップから戻す</button>
       <input type="file" id="bkFile" accept="application/json,.json" hidden>
     </div>
   </section>
@@ -500,13 +501,19 @@ $("storeCands").addEventListener("click", e => {
   if (b.dataset.manual) { $("storeCands").hidden = true; $("eStore").focus(); $("eStore").select(); }
   else { $("eStore").value = b.dataset.name; $("storeCands").hidden = true; }
 });
-$("keySet").onclick = () => {
-  const n = Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0);
-  const k = prompt("Google MapsのAPIキーを貼り付けてください(空にすると削除します)\n今月の検索回数: " + n + " / " + PLACES_MONTHLY_LIMIT, localStorage.getItem("placesKey") || "");
-  if (k === null) return;
-  if (k.trim()) { localStorage.setItem("placesKey", k.trim()); showToast("店名検索を設定しました"); }
-  else { localStorage.removeItem("placesKey"); showToast("店名検索の設定を削除しました"); }
-};
+// 設定は目立たない場所に隠す: 一覧のタイトルを5回続けてタップ。保存したキーは画面に出さない
+function openKeySetting(){
+  const n = Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0), has = !!localStorage.getItem("placesKey");
+  const k = prompt((has ? "設定済みです(キーは表示しません)。置き換えるときは、新しいキーを貼り付けてください。削除するときは「削除」と入力してください。" : "Google MapsのAPIキーを貼り付けてください。") + "\n今月の検索回数: " + n + " / " + PLACES_MONTHLY_LIMIT, "");
+  if (k === null || !k.trim()) return;
+  if (k.trim() === "削除") { localStorage.removeItem("placesKey"); showToast("店名検索の設定を削除しました"); return; }
+  localStorage.setItem("placesKey", k.trim()); showToast("店名検索を設定しました");
+}
+let titleTaps = 0, titleTimer = null;
+$("homeTitle").addEventListener("click", () => {
+  titleTaps++; clearTimeout(titleTimer); titleTimer = setTimeout(() => { titleTaps = 0; }, 1500);
+  if (titleTaps >= 5) { titleTaps = 0; openKeySetting(); }
+});
 $("pasteOpen").onclick = () => { $("pasteText").value = ""; show("paste"); };
 $("pasteClose").onclick = () => show("list");
 $("pasteFromClip").onclick = () => {
