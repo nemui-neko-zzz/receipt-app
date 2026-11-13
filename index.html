@@ -204,14 +204,12 @@ const ICONS = {
 };
 const DEFAULT_ICON = '<circle cx="12" cy="12" r="7"/>';
 // 商品名→ジャンル。直したジャンルは learned に覚えて、次から使う。
-const GUESS_WORDS = {   // 商品名に含まれる言葉 → ジャンル(上にあるものが先に当たる)
-  "交通":["ガソリン","ハイオク","レギュラー","軽油","洗車","駐車","高速","切符","乗車","定期"],
-  "医療":["薬","錠","マスク","絆創膏","目薬","消毒","処方"],
-  "日用品":["洗剤","ティッシュ","トイレ","シャンプー","リンス","歯","石鹸","せっけん","ラップ","ゴミ袋","電池","灯油","スポンジ","タオル"],
-  "衣類":["シャツ","靴下","下着","ズボン","パンツ","靴","帽子"],
-  "食費":["牛乳","パン","卵","米","野菜","果物","肉","魚","豆腐","納豆","おにぎり","弁当","サンド","チキン","唐揚","から揚","コロッケ","お茶","水","コーヒー","ジュース","ビール","酒","菓子","チョコ","アイス","麺","ヨーグルト","チーズ","ハム","ソーセージ","惣菜","サラダ"],
-};
-const GUESS = Object.entries(GUESS_WORDS).flatMap(([cat, ws]) => ws.map(w => [w, cat]));
+/* rules:start */
+const GENRE_RULES = {"storeTypes": [["gas", "石油|ガソリン|エネオス|ENEOS|出光|コスモ|シェル|スタンド|セルフ.*SS|SS$|Dr\\.?Drive"], ["transit", "オートバックス|イエローハット|ジェームス|NEXCO|高速|パーキング|駐車|コインパ|パーク24|タイムズ|JR|鉄道|電鉄|交通局|タクシー|バス"], ["food_out", "ジョリーパスタ|ココス|ガスト|サイゼリヤ|すき家|吉野家|松屋|マクドナルド|モスバーガー|ケンタッキー|スターバックス|ドトール|タリーズ|コメダ|カフェ|珈琲|喫茶|食堂|レストラン|ラーメン|らーめん|うどん|そば|寿司|すし|焼肉|焼き肉|居酒屋|CoCo壱番屋|ココイチ|さわやか|丸亀|はなまる|バーガー|ステーキ|てんや|天丼|牛丼|ハンバーグ|ファミレス|ミスタードーナツ|ミスド|サーティワン|ピザ|フードコート|イチバン星|きたろう|スシロー|鮨|ダイナー|びっくりドンキー|もつ鍋|丼|藍屋|精養軒|飯田商店|製麺|お結び|ダイニング|酒場|バル|焼鳥|やきとり|とんかつ|カレー|ウエスト|(^|[^A-Za-z])bar($|[^a-z])"], ["medical", "病院|クリニック|医院|歯科|整骨|整体|調剤|診療"], ["drug", "ドラッグ|薬局|クリエイトエス|スギ|ウエルシア|ツルハ|マツモトキヨシ|マツキヨ|V.?drug|ココカラ|サンドラッグ|ダイコク|薬王堂|ドラスト"], ["variety", "ダイソー|セリア|Seria|Can.?Do|キャンドゥ|IKEA|イケア|エンチョー|100えん|100円|コーナン|カインズ|ホームセンター|ニトリ|無印良品|ドン.?キホーテ|ビバホーム|ジョイフル|ホーマック|ロフト|ハンズ|ホームズ|アピタ|ユニー"], ["clothing", "ユニクロ|GU|ジーユー|しまむら|アベイル|ライトオン|洋服|AOKI|青山|ワークマン|ABC.?MART|ZARA|H&M|靴"], ["store_misc", "快活|ミュージアム|ニンテンドー|ブックオフ|書店|本屋|TSUTAYA|ゲオ|映画|シネマ|カラオケ|ボウリング|ゲームセンター|ホビー|市役所|区役所|役場|郵便局|税務署|法務局|銀行|ATM|証明"], ["super", "スーパー|マックスバリュ|フードストア|エブリィ|マミー|ドミー|オギノ|イオン|ヨシヅヤ|西友|ライフ|コープ|生協|カドイケ|サンサンクック|全日食|ビッグデー|青果|精肉|鮮魚|食品館|マルエツ|ヤオコー|業務スーパー"], ["conv", "セブン|ファミリーマート|ファミマ|ローソン|ミニストップ|デイリーヤマザキ|ヤマザキ|ポプラ|NewDays|ニューデイズ|キヨスク|アンコヤ|ベーカリー|ケーキ|菓子|和菓子|洋菓子|パン屋|ドーナツ|(^|[^A-Za-z])SA($|[^A-Za-z])|(^|[^A-Za-z])PA($|[^A-Za-z])|売店|エスポット|エキナカ"]], "storeDefault": {"gas": "交通", "transit": "交通", "food_out": "外食", "medical": "医療", "drug": "日用品", "variety": "日用品", "clothing": "衣類", "store_misc": "その他", "super": "食費", "conv": "食費"}, "itemRules": [["交通", "ガソリン|ハイオク|レギュラー|軽油|洗車|駐車|パーキング|高速|通行料|オイル交換|エンジンオイル|タイヤ|車検|ETC|電車|乗車|切符"], ["医療", "薬|錠|軟膏|目薬|絆創膏|バンドエイド|マスク|消毒|サプリ|ビタミン|湿布|体温計|うがい|ロキソ|パブロン|漢方|処方|診察|診療|ワクチン|コンタクト|整腸|胃腸|鼻|のど飴|咳"], ["衣類", "シャツ|靴下|ソックス|下着|パンツ|ズボン|ジーンズ|スカート|ワンピ|ジャケット|コート|セーター|スニーカー|サンダル|帽子|手袋|マフラー|タイツ|インナー|パジャマ|ストッキング|ブラジャー|Tシャツ|ベスト|カーディガン"], ["日用品", "洗剤|柔軟剤|漂白|ティッシュ|トイレット|トイレ|ラップ|アルミ|ホイル|ポリ袋|ゴミ袋|レジ袋|スポンジ|歯ブラシ|歯磨|シャンプー|リンス|コンディショナ|ボディソープ|石鹸|せっけん|洗顔|化粧|クレンジング|乳液|カミソリ|綿棒|ナプキン|おむつ|オムツ|電池|電球|ノート|文具|テープ|ハサミ|ファイル|バケツ|ハンガー|収納|タオル|ふきん|雑巾|掃除|クリーナー|芳香|消臭|除湿|殺虫|カイロ|マット|キッチンペーパー|クッキングシート|保存容器|タッパ|まな板|フライパン|ライター|肥料|ガムテ|養生|ボールペン|封筒|はがき|切手|ハンドソープ|台所|風呂|トイレ用|ペットボトル用|ゴミ|ネット|ビニール|フィルタ|テーピ|ソフトパック|ポケットティッシュ|油性|排水口|三角コーナー"], ["食費", "牛乳|パン|卵|玉子|米|ご飯|ごはん|麺|うどん|そば|パスタ|ラーメン|豆腐|納豆|肉|豚|鶏|牛|ひき|ハム|ベーコン|ソーセージ|魚|鮭|さば|刺身|寿司|海苔|野菜|キャベツ|レタス|トマト|きゅうり|人参|にんじん|玉ねぎ|たまねぎ|じゃがいも|大根|白菜|ねぎ|もやし|きのこ|しいたけ|果物|りんご|バナナ|みかん|いちご|ぶどう|レモン|ヨーグルト|チーズ|バター|マーガリン|ジュース|お茶|茶|ミネラルウォーター|天然水|炭酸水|コーヒー|紅茶|ビール|酒|ワイン|チューハイ|ハイボール|焼酎|菓子|チョコ|クッキー|ビスケット|スナック|ポテト|せんべい|アイス|ゼリー|プリン|ケーキ|おにぎり|弁当|サンド|惣菜|唐揚|から揚|コロッケ|フライ|天ぷら|餃子|シュウマイ|カレー|シチュー|ルウ|味噌|みそ|醤油|しょうゆ|砂糖|塩|油|酢|マヨ|ケチャップ|ソース|ドレッシング|だし|出汁|スープ|缶詰|ツナ|サラダ|カップ麺|カップヌードル|カップスープ|冷凍|ちくわ|かまぼこ|こんにゃく|漬物|キムチ|梅|ふりかけ|ジャム|はちみつ|小麦粉|片栗粉|パン粉|ミルク|豆乳|オレンジ|ウインナー|ハンバーグ|ピザ|ドリンク|炭酸|コーラ|サイダー|ガム|キャンディ|飴|グミ|ラムネ|餅|団子|大福|饅頭|まんじゅう|どら焼|煎餅|うなぎ|牡蠣|エビ|えび|いか|たこ|わかめ|ひじき|昆布|おでん|つゆ|調味|ペスカトーレ|カルボナーラ|ミートソース|たらこ|ピラフ|あんこ|いなり|巻|丼|ライス|フルーツ|ナッツ|プロテイン|ゼロ|ストロング|サワー|ネギ|ニラ|ほうれん草|小松菜|ピーマン|なす|ナス|かぼちゃ|ごぼう|れんこん|ブロッコリー|アスパラ|生姜|しょうが|にんにく|ニンニク|大葉|みょうが|水菜|唐辛子|七味|胡椒|スパイス|香辛料"]]};
+/* rules:end */
+const STORE_RX = GENRE_RULES.storeTypes.map(([t, p]) => [t, new RegExp(p, "i")]);
+const ITEM_RX = GENRE_RULES.itemRules.map(([g, p]) => [g, new RegExp(p)]);
+function storeType(name){ const n = String(name || "").normalize("NFKC"); for (const [t, rx] of STORE_RX) if (rx.test(n)) return t; return null; }
 const KEY = "receipts.v1", LKEY = "learned.v1";
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 let receipts = load(KEY, null);
@@ -239,7 +237,20 @@ const $ = id => document.getElementById(id);
 const yen = n => Number(n||0).toLocaleString() + "円";
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on", s.id===id)); window.scrollTo(0,0); }
-function guess(name){ if (learned[name]) return learned[name]; const g = GUESS.find(([k])=>name.includes(k)); return g ? g[1] : "その他"; }
+// 商品名と店名からジャンルを当てる(Zaim取り込みの変換ツールと同じ手順)。自分で直したジャンルが、いちばん優先
+function guess(name, store){
+  if (learned[name]) return learned[name];
+  const n = String(name || "").normalize("NFKC"), st = storeType(store);
+  let kw = null; for (const [g, rx] of ITEM_RX) if (rx.test(n)) { kw = g; break; }
+  if (st === "gas") return kw === "食費" ? "食費" : "交通";
+  if (st === "food_out") return "外食";
+  if (st === "transit") return "交通";
+  if (st === "clothing") return "衣類";
+  if (st === "medical") return "医療";
+  if (st === "store_misc") return kw || "その他";
+  if (st) return kw || GENRE_RULES.storeDefault[st];   // ドラッグストア・100均・スーパー・コンビニ
+  return kw || learned["@" + store] || "その他";        // 店の種類が分からないときは、その店でよく買うジャンル
+}
 // ジャンルは、よく使う順に並べる(同数なら元の順)
 function sortedCats(){
   const all = [...CATS, ...customCats], count = {};
@@ -344,7 +355,7 @@ $("items").addEventListener("input", e => {
     renderItems(); return;
   }
   cur.items[i][t.dataset.f] = t.dataset.f==="p" ? Number(t.value) : t.value;
-  if (t.dataset.f==="c") learned[cur.items[i].n] = t.value;  // 直したジャンルを覚える
+  if (t.dataset.f==="c") { learned[cur.items[i].n] = t.value; delete cur.items[i].a; }  // 直したジャンルを覚える。自動の印も外す
   if (t.dataset.f==="p") checkTotal();
 });
 $("items").addEventListener("click", e => {
@@ -359,6 +370,7 @@ $("cancel").onclick =() => show(cur && cur.id !== null ? "detail" : "list");
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
 $("save").onclick = () => {
   cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0);
+  cur.items.forEach(i => { delete i.a; });
   if (cur.store !== "(店名なし)") [cur.phone, cur.reg].filter(Boolean).forEach(k => { storeMap[k] = cur.store; });   // 次から同じ店は自動で入る
   if (cur.id === null) { cur.id = Date.now(); receipts.push(cur); }
   else receipts = receipts.map(r=>r.id===cur.id ? cur : r);
@@ -457,9 +469,10 @@ function parseReceiptText(raw, knownStores) {
 // ---- 文字から追加(貼り付け / ショートカットからのリンク) ----
 function startFromText(text){
   const r = parseReceiptText(text, receipts.map(x => x.store));
-  const items = r.items.length ? r.items.map((i, k, a) => ({...i, c: i.p < 0 && k > 0 ? guess(a[k-1].n) : guess(i.n)})) : [{ n:"", p:r.total || 0, c:"その他" }];
   const mine = storeMap[r.phone] || storeMap[r.reg] || "";   // 前に確認した店なら、その名前
-  openEdit({ id:null, store:mine || r.store, phone:r.phone, reg:r.reg, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items }, null);
+  const store = mine || r.store;
+  const items = r.items.length ? r.items.map((i, k, a) => ({...i, a:1, c: i.p < 0 && k > 0 ? guess(a[k-1].n, store) : guess(i.n, store)})) : [{ n:"", p:r.total || 0, c:"その他", a:1 }];
+  openEdit({ id:null, store, phone:r.phone, reg:r.reg, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items }, null);
   $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "");
   if (!mine) suggestStores({ address:r.address, phone:r.phone, store:r.store });
 }
@@ -501,7 +514,11 @@ async function suggestStores(info){
 $("storeCands").addEventListener("click", e => {
   const b = e.target.closest(".cand"); if (!b) return;
   if (b.dataset.manual) { $("storeCands").hidden = true; $("eStore").focus(); $("eStore").select(); }
-  else { $("eStore").value = b.dataset.name; $("storeCands").hidden = true; }
+  else {
+    $("eStore").value = b.dataset.name; $("storeCands").hidden = true;
+    cur.items.forEach(it => { if (it.a) it.c = guess(it.n, b.dataset.name); });   // 店が分かったので、自動のジャンルを付け直す
+    renderItems();
+  }
 });
 // 設定は目立たない場所に隠す: 一覧のタイトルを5回続けてタップ。保存したキーは画面に出さない
 function openKeySetting(){
@@ -568,17 +585,33 @@ $("bkSave").onclick = () => {
   showToast("バックアップを保存しました");
 };
 $("bkLoad").onclick = () => $("bkFile").click();
+// バックアップを反映する。mode:"merge" のファイル(Zaimの取り込みなど)は、今の記録を残したまま足す(同じIDは足さない)
+function applyBackup(d){
+  if (d.app !== "receipts" || !Array.isArray(d.receipts)) throw new Error("format");
+  if (d.mode === "merge") {
+    // replaceSrc があれば、その取り込み元(例: zaim)の取り込み済みレシートを、新しい内容に置き換える(ルールを直して入れ直すとき用)
+    const old = d.replaceSrc ? receipts.filter(r => r.src === d.replaceSrc) : [];
+    const keep = old.length ? receipts.filter(r => r.src !== d.replaceSrc) : receipts;
+    const have = new Set(keep.map(r => r.id)), add = d.receipts.filter(r => !have.has(r.id));
+    if (!add.length) { showToast("すべて取り込み済みです"); return; }
+    const msg = old.length ? d.replaceSrc + "から取り込み済みの" + old.length + "枚を、新しい" + add.length + "枚に置き換えますか?\n(取り込み後に手で直した内容は消えます。ほかのレシートは消えません)" : add.length + "枚のレシートを追加しますか?(今の記録は消えません)";
+    if (!confirm(msg)) return;
+    receipts = keep.concat(add);
+    (d.customCats || []).forEach(c => { if (!customCats.includes(c)) customCats.push(c); });
+    (d.stores || []).forEach(x => { if (!storeMap[x.k]) storeMap[x.k] = x.n; });
+    (d.learned || []).forEach(x => { if (!learned[x.n]) learned[x.n] = x.c; });
+    persist(); renderList(); showToast(add.length + "枚を" + (old.length ? "置き換えました" : "追加しました"));
+    return;
+  }
+  if (!confirm("今の記録(" + receipts.length + "件)を、バックアップの内容(" + d.receipts.length + "件)に置き換えますか?")) return;
+  receipts = d.receipts; customCats = d.customCats || [];
+  storeMap = Object.fromEntries((d.stores || []).map(x => [x.k, x.n]));
+  learned = Object.fromEntries((d.learned || []).map(x => [x.n, x.c]));
+  persist(); renderList(); showToast("バックアップから戻しました");
+}
 $("bkFile").onchange = async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-  try {
-    const d = JSON.parse(await f.text());
-    if (d.app !== "receipts" || !Array.isArray(d.receipts)) throw new Error("format");
-    if (!confirm("今の記録(" + receipts.length + "件)を、バックアップの内容(" + d.receipts.length + "件)に置き換えますか?")) return;
-    receipts = d.receipts; customCats = d.customCats || [];
-    storeMap = Object.fromEntries((d.stores || []).map(x => [x.k, x.n]));
-    learned = Object.fromEntries((d.learned || []).map(x => [x.n, x.c]));
-    persist(); renderList(); showToast("バックアップから戻しました");
-  } catch { showToast("このファイルは読み込めませんでした"); }
+  try { applyBackup(JSON.parse(await f.text())); } catch { showToast("このファイルは読み込めませんでした"); }
 };
 
 (function initSync() {
