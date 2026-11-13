@@ -29,6 +29,14 @@
   .cta { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--green); color:#fff; border:0; border-radius:6px; padding:15px; font-size:16px; font-weight:700; cursor:pointer; }
   .cta svg { width:20px; height:20px; }
   .mini { display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--sub); text-decoration:none; }
+  .cands { margin-top:8px; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .candnote { font-size:12px; color:var(--sub); padding:8px 12px; background:var(--bg); }
+  .cand { display:block; width:100%; text-align:left; background:#fff; border:0; border-top:1px solid var(--line); padding:11px 12px; font-size:14px; color:var(--text); cursor:pointer; }
+  .cand b { display:block; font-weight:700; }
+  .cand span { display:block; font-size:12px; color:var(--sub); margin-top:2px; }
+  .cand.manual { color:var(--sub); font-size:13px; }
+  button.mini { background:none; border:0; width:100%; cursor:pointer; font-family:inherit; }
+  textarea.field { resize:vertical; line-height:1.5; font-size:15px; }
 
   /* レポート/履歴の切替 */
   .tabs { display:flex; align-items:center; justify-content:space-between; padding:8px 16px; }
@@ -129,6 +137,8 @@
         <svg viewBox="0 0 24 24" fill="#fff"><path d="M9 4l-1.5 2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.5L15 4zM12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
         レシートを撮影する
       </button>
+      <a class="mini" id="scLink" href="#">ショートカットで読み取る</a>
+      <button class="mini" id="pasteOpen">文字を貼り付けて追加</button>
       <a class="mini" href="scan-test.html">かざして自動撮影(試作)</a>
       <input type="file" id="file" accept="image/*" capture="environment" hidden>
     </div>
@@ -140,7 +150,7 @@
     <div class="monthbar"><select id="month"></select></div>
     <div id="view"></div>
     <div class="foot">
-      <button id="bkSave">バックアップを保存</button><span>|</span><button id="bkLoad">バックアップから戻す</button>
+      <button id="bkSave">バックアップを保存</button><span>|</span><button id="bkLoad">バックアップから戻す</button><span>|</span><button id="keySet">店名検索の設定</button>
       <input type="file" id="bkFile" accept="application/json,.json" hidden>
     </div>
   </section>
@@ -151,6 +161,18 @@
     <div class="graybg"><div class="card" id="dCard"></div></div>
   </section>
 
+  <!-- 文字から追加 -->
+  <section id="paste" class="screen">
+    <div class="top"><div class="ttl">文字から追加</div><button class="x" id="pasteClose" aria-label="閉じる">×</button></div>
+    <div class="form">
+      <label class="lb" style="margin-top:8px">読み取った文字</label>
+      <textarea class="field" id="pasteText" rows="10" placeholder="写真アプリのライブテキストで選んでコピーした文字を、ここに貼り付けます"></textarea>
+      <button class="add" id="pasteFromClip" style="margin-top:8px">コピーした文字を貼り付ける</button>
+      <div class="note">店名・日付・時刻・合計金額を取り出して、確認画面に出します。間違いは、確認画面で直せます。</div>
+    </div>
+    <div class="actions"><button class="btn main" id="pasteGo">読み取る</button></div>
+  </section>
+
   <!-- 確認・編集 -->
   <section id="edit" class="screen">
     <div class="top"><div class="ttl">レシートを確認</div><button class="x" id="cancel" aria-label="閉じる">×</button></div>
@@ -159,6 +181,7 @@
     <div class="form">
       <label class="lb" style="margin-top:8px">スポット名</label>
       <input class="field" id="eStore">
+      <div class="cands" id="storeCands" hidden></div>
       <label class="lb">購入日</label>
       <input class="field" id="eDate" type="datetime-local">
       <label class="lb">品目 / 金額 / ジャンル</label>
@@ -206,6 +229,7 @@ const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; 
 let receipts = load(KEY, null);
 let learned = load(LKEY, {});
 let customCats = load("cats.v1", []);
+let storeMap = Object.fromEntries(load("stores.v1", []).map(x => [x.k, x.n]));   // 電話番号/登録番号 → 確認した店名
 let updatedAt = Number(localStorage.getItem("receipts.updatedAt") || 0), applyingRemote = false;
 if (!receipts) {
   receipts = [
@@ -218,7 +242,7 @@ if (!receipts) {
 const p2 = n => String(n).padStart(2,"0");
 function today(offset){ const d=new Date(); d.setDate(d.getDate()+offset); return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); }
 function nowTime(){ const d=new Date(); return p2(d.getHours())+":"+p2(d.getMinutes()); }
-function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(receipts)); localStorage.setItem(LKEY, JSON.stringify(learned)); localStorage.setItem("cats.v1", JSON.stringify(customCats)); localStorage.setItem("receipts.updatedAt", String(updatedAt)); }
+function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(receipts)); localStorage.setItem(LKEY, JSON.stringify(learned)); localStorage.setItem("cats.v1", JSON.stringify(customCats)); localStorage.setItem("receipts.updatedAt", String(updatedAt)); localStorage.setItem("stores.v1", JSON.stringify(Object.entries(storeMap).map(([k,n]) => ({k,n})))); }
 // 変更を保存する: 端末に保存 → 更新時刻を進める → ログイン中ならクラウドにも上げる
 function persist(){ if (!applyingRemote) updatedAt = Date.now(); saveLocal(); if (!applyingRemote) pushToCloud(); }
 let toastTimer = null;
@@ -316,6 +340,7 @@ $("file").onchange = e => {
 let cur = null;
 function openEdit(r, img){
   cur = JSON.parse(JSON.stringify(r));
+  candToken++; $("storeCands").hidden = true;
   $("eStore").value = cur.store; $("eDate").value = cur.date + "T" + (cur.time || "00:00"); $("eTotal").value = cur.total;
   $("thumb").hidden = !img; $("thumbHint").hidden = !img; if (img) $("thumb").src = img;
   $("remove").textContent = cur.id === null ? "やめる" : "削除";
@@ -367,12 +392,138 @@ $("cancel").onclick =() => show(cur && cur.id !== null ? "detail" : "list");
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
 $("save").onclick = () => {
   cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0);
+  if (cur.store !== "(店名なし)") [cur.phone, cur.reg].filter(Boolean).forEach(k => { storeMap[k] = cur.store; });   // 次から同じ店は自動で入る
   if (cur.id === null) { cur.id = Date.now(); receipts.push(cur); }
   else receipts = receipts.map(r=>r.id===cur.id ? cur : r);
   persist(); month = cur.date.slice(0,7); renderList(); show("list");
 };
 
 renderList();
+
+// レシートの文字(iPhoneのライブテキスト等で読んだもの)から、店名・日付・時刻・合計・明細を取り出す
+function parseReceiptText(raw, knownStores) {
+  const text = String(raw || "")
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/￥/g, "¥").replace(/，/g, ",").replace(/：/g, ":").replace(/／/g, "/").replace(/[・·]/g, "");
+  const nf = text.replace(/\s+/g, "");
+  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const hasLines = lines.length >= 3;
+
+  // 日付: 4桁の年があればそれ。先頭の「2」が欠けた「026年」のような読み間違いも、年の数字2桁から補う。先に出てくる方を採用
+  let date = "", time = "", dEnd = 0;
+  const p1 = /(20\d{2})[\/.\-年](\d{1,2})[\/.\-月](\d{1,2})/.exec(nf);
+  const p2 = /(\d{2,3})年(\d{1,2})月(\d{1,2})日/.exec(nf);
+  const dm = (p1 && p2) ? (p1.index <= p2.index ? p1 : p2) : (p1 || p2);
+  if (dm) {
+    const y = dm[1].length === 4 ? Number(dm[1]) : 2000 + Number(dm[1]) % 100;
+    date = y + "-" + String(dm[2]).padStart(2, "0") + "-" + String(dm[3]).padStart(2, "0");
+    dEnd = dm.index + dm[0].length;
+    const tm = /(\d{1,2}):(\d{2})/.exec(nf.slice(dEnd, dEnd + 30));
+    if (tm) time = String(tm[1]).padStart(2, "0") + ":" + tm[2];
+  }
+
+  // 合計: 「合計」の後ろ → 「支払/お買上/請求」の後ろの¥金額 → ¥金額の最大値
+  const num = s => Number(s.replace(/,/g, ""));
+  let total = null, m;
+  if ((m = /合計[^\d¥]{0,3}¥?(\d[\d,]*)/.exec(nf))) total = num(m[1]);
+  else if ((m = /(?:支払|お買上げ?|請求|お預り?)[^\d¥]{0,6}¥(\d[\d,]*)/.exec(nf))) total = num(m[1]);
+  else { const all = (nf.match(/¥(\d[\d,]*)/g) || []).map(s => num(s.slice(1))); if (all.length) total = Math.max(...all); }
+
+  // 店名: 前に保存した店名が文字に入っていればそれ。なければ、改行があれば最初の日本語の行、なければ電話番号などの手前の末尾
+  let store = (knownStores || []).find(s => s && nf.includes(s.replace(/\s+/g, ""))) || "";
+  if (!store) {
+    if (hasLines) store = lines.slice(0, 6).find(l => /[ぁ-んァ-ン一-龥]{2,}/.test(l) && !/領収|レシート|納品書|登録番号|TEL|電話|〒|\d{2,4}-\d{2,4}-\d{3,4}/.test(l)) || "";
+    else { const head = nf.split(/\d{2,4}-\d{2,4}-\d{3,4}|TEL|登録番号|〒/)[0]; store = head.length < nf.length && head.length <= 60 ? head.slice(-20) : ""; }   // 区切りが見つからない/長すぎるときは当てずっぽうにしない
+  }
+
+  // 明細: 改行がある文字だけ。「商品名 金額」の行を拾う
+  const items = [];
+  if (hasLines) for (const l of lines) {
+    if (/合計|小計|税|お預|釣|支払|ポイント|カード|番号|TEL|登録|クレジット|現金|対象|値引|割引|日時|No/.test(l) || /\d{2,4}-\d{2,4}-\d{3,4}|\d{4}[\/年]\d|\d{1,2}:\d{2}/.test(l)) continue;
+    const im = /^(.*?[^\d\s¥,.])\s*¥?\s*(\d{1,3}(?:,\d{3})+|\d{2,6})\s*[※*]?$/.exec(l);
+    if (im) items.push({ n: im[1].trim(), p: num(im[2]) });
+  }
+  // 店名検索の手がかり: 電話番号(TEL表記を優先)・住所(都道府県から番地まで)・インボイス登録番号
+  const phone = ((/(?:TEL|Tel|tel|電話)[:：]?(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nf) || /(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nf)) || [])[1] || "";
+  const am = /(北海道|東京都|京都府|大阪府|(?:青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|神奈川|新潟|富山|石川|福井|山梨|長野|岐阜|静岡|愛知|三重|滋賀|兵庫|奈良|和歌山|鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|大分|宮崎|鹿児島|沖縄)県)([^\d:]{1,15}?)(\d{1,4}(?:(?:-|丁目|番地?|の)\d{1,4}){0,3})/.exec(nf);
+  const address = am ? am[0] : "";
+  const reg = ((/T(\d{13})/.exec(nf)) || [])[1] ? "T" + /T(\d{13})/.exec(nf)[1] : "";
+  return { store, date, time, total, items, phone, address, reg };
+}
+
+// ---- 文字から追加(貼り付け / ショートカットからのリンク) ----
+function startFromText(text){
+  const r = parseReceiptText(text, receipts.map(x => x.store));
+  const items = r.items.length ? r.items.map(i => ({...i, c:guess(i.n)})) : [{ n:"", p:r.total || 0, c:"その他" }];
+  const mine = storeMap[r.phone] || storeMap[r.reg] || "";   // 前に確認した店なら、その名前
+  openEdit({ id:null, store:mine || r.store, phone:r.phone, reg:r.reg, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items }, null);
+  $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "");
+  if (!mine) suggestStores({ address:r.address, phone:r.phone, store:r.store });
+}
+
+// ---- 店名の候補(Google Maps): 住所 → 電話番号 → 店名 の順に探して、候補から選ぶ ----
+let candToken = 0;
+const PLACES_MONTHLY_LIMIT = 1500;   // 端末ごとの月の上限(レシート約500枚ぶん)
+async function suggestStores(info){
+  const box = $("storeCands"), my = ++candToken, key = localStorage.getItem("placesKey");
+  const queries = [info.address, info.phone, info.store].filter(Boolean);
+  if (!key || !queries.length) { box.hidden = true; return; }
+  // この端末で1か月に使う検索の回数に上限をつける(Googleの無料枠は月5,000回。料金が出ないように、その手前で自分で止める)
+  const ck = "placesCount." + today(0).slice(0,7), used = Number(localStorage.getItem(ck) || 0);
+  if (used + queries.length > PLACES_MONTHLY_LIMIT) {
+    box.hidden = false;
+    box.innerHTML = '<div class="candnote">今月の店名検索の上限(' + PLACES_MONTHLY_LIMIT + '回)に達したので、店名は手入力してください。</div><button class="cand manual" data-manual="1">自分で入力</button>';
+    return;
+  }
+  localStorage.setItem(ck, String(used + queries.length));   // 失敗しても数える(多めに数える方が安全)
+  box.hidden = false; box.innerHTML = '<div class="candnote">店名の候補を探しています…</div>';
+  const results = await Promise.allSettled(queries.map(q => fetch("https://places.googleapis.com/v1/places:searchText", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "X-Goog-Api-Key":key, "X-Goog-FieldMask":"places.displayName,places.formattedAddress" },
+    body: JSON.stringify({ textQuery:q, languageCode:"ja", regionCode:"JP", maxResultCount:3 }),
+  }).then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })));
+  if (my !== candToken) return;   // 探している間に画面が変わった
+  const lists = results.map(x => x.status === "fulfilled" ? (x.value.places || []) : []);
+  const seen = new Set(), top = [];
+  for (let i = 0; i < 3 && top.length < 3; i++) lists.forEach(l => {   // 住所・電話・店名の1位 → 2位 …の順で最大3件
+    const p = l[i]; if (!p || top.length >= 3) return;
+    const name = p.displayName && p.displayName.text, addr = (p.formattedAddress || "").replace(/^日本、?\s*/, "");
+    if (name && !seen.has(name + addr)) { seen.add(name + addr); top.push({ name, addr }); }
+  });
+  const failed = results.every(x => x.status === "rejected");
+  box.innerHTML = '<div class="candnote">' + (top.length ? "店名の候補(タップで入力)" : failed ? "候補を取得できませんでした(キーの設定を確認してください)" : "候補が見つかりませんでした") + "</div>" +
+    top.map(c => '<button class="cand" data-name="' + esc(c.name) + '"><b>' + esc(c.name) + "</b><span>" + esc(c.addr) + "</span></button>").join("") +
+    '<button class="cand manual" data-manual="1">候補にない(自分で入力)</button>';
+}
+$("storeCands").addEventListener("click", e => {
+  const b = e.target.closest(".cand"); if (!b) return;
+  if (b.dataset.manual) { $("storeCands").hidden = true; $("eStore").focus(); $("eStore").select(); }
+  else { $("eStore").value = b.dataset.name; $("storeCands").hidden = true; }
+});
+$("keySet").onclick = () => {
+  const n = Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0);
+  const k = prompt("Google MapsのAPIキーを貼り付けてください(空にすると削除します)\n今月の検索回数: " + n + " / " + PLACES_MONTHLY_LIMIT, localStorage.getItem("placesKey") || "");
+  if (k === null) return;
+  if (k.trim()) { localStorage.setItem("placesKey", k.trim()); showToast("店名検索を設定しました"); }
+  else { localStorage.removeItem("placesKey"); showToast("店名検索の設定を削除しました"); }
+};
+$("pasteOpen").onclick = () => { $("pasteText").value = ""; show("paste"); };
+$("pasteClose").onclick = () => show("list");
+$("pasteFromClip").onclick = () => {
+  if (!navigator.clipboard || !navigator.clipboard.readText) { showToast("入力欄を長押しして、貼り付けてください"); return; }
+  navigator.clipboard.readText().then(t => { $("pasteText").value = t; }).catch(() => showToast("入力欄を長押しして、貼り付けてください"));
+};
+$("pasteGo").onclick = () => { const t = $("pasteText").value.trim(); if (!t) { showToast("文字を貼り付けてください"); return; } startFromText(t); };
+// ショートカットから「…/index.html#t=読み取った文字」で開かれたとき
+const qResult = new URLSearchParams(location.search).get("result");
+if (qResult) { history.replaceState(null, "", location.pathname); startFromText(qResult); }
+else if (location.hash.startsWith("#t=")) {
+  let t = ""; try { t = decodeURIComponent(location.hash.slice(3)); } catch {}
+  history.replaceState(null, "", location.pathname + location.search);
+  if (t) startFromText(t);
+}
+// 「ショートカットで読み取る」: ショートカットアプリを呼び出し、読んだ文字を付けてこのページに戻ってもらう
+$("scLink").href = "shortcuts://x-callback-url/run-shortcut?name=" + encodeURIComponent("レシート読み取り") + "&x-success=" + encodeURIComponent(location.origin + location.pathname);
 
 /* ===== クラウド同期 (Firebase + Googleログイン) ===== */
 // そろそろ・とりあえずと同じFirebaseプロジェクトを使い、保存先だけ別(apps/receipts)
@@ -405,6 +556,7 @@ $("bkFile").onchange = async e => {
     if (d.app !== "receipts" || !Array.isArray(d.receipts)) throw new Error("format");
     if (!confirm("今の記録(" + receipts.length + "件)を、バックアップの内容(" + d.receipts.length + "件)に置き換えますか?")) return;
     receipts = d.receipts; customCats = d.customCats || [];
+    storeMap = Object.fromEntries((d.stores || []).map(x => [x.k, x.n]));
     learned = Object.fromEntries((d.learned || []).map(x => [x.n, x.c]));
     persist(); renderList(); showToast("バックアップから戻しました");
   } catch { showToast("このファイルは読み込めませんでした"); }
@@ -429,6 +581,7 @@ function dataDoc(){ return fbDb.collection("users").doc(fbUser.uid).collection("
 function cloudData(){
   return JSON.parse(JSON.stringify({
     receipts, customCats, updatedAt,
+    stores: Object.entries(storeMap).map(([k,n]) => ({k,n})),
     learned: Object.entries(learned).filter(([n])=>n).map(([n,c])=>({n,c})),
   }));
 }
@@ -458,6 +611,7 @@ function applyRemote(r){
   applyingRemote = true;
   receipts = r.receipts || [];
   customCats = r.customCats || [];
+  storeMap = Object.fromEntries((r.stores || []).map(x => [x.k, x.n]));
   learned = Object.fromEntries((r.learned || []).map(x => [x.n, x.c]));
   updatedAt = r.updatedAt || Date.now();
   saveLocal(); renderList();
