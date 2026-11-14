@@ -545,7 +545,7 @@ else if (location.hash.startsWith("#t=")) {
 const isStandalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
 const scName = encodeURIComponent("レシート読み取り");
 $("scLink").href = isStandalone
-  ? "shortcuts://run-shortcut?name=" + scName   // 全画面のアプリ: 戻り先がSafariになってしまうので、結果はクリップボード経由で受け取る
+  ? "shortcuts://x-callback-url/run-shortcut?name=" + scName + "&x-success=" + encodeURIComponent(location.origin + location.pathname)   // 全画面のアプリも、終了後に同じURLへ戻る動作を試す
   : "shortcuts://x-callback-url/run-shortcut?name=" + scName + "&x-success=" + encodeURIComponent(location.origin + location.pathname);
 $("scLink").addEventListener("click", () => localStorage.setItem("scWait", String(Date.now())));
 // ショートカットから戻ってきたら「取り込む」を出す(クリップボードの文字を読むには、タップが必要)
