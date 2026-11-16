@@ -6,9 +6,7 @@
 <title>レシート</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="レシート">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">   <!-- ホーム画面から開くと、ブラウザの枠なしの全画面になる(Safariとは保存データが別になる) -->
+<!-- あえて全画面にする設定(apple-mobile-web-app-capable)は付けない: 付けると別のアプリ扱いになり、ショートカットから戻る先がブラウザになってしまう。Safariで開く形なら、撮影後に自動で戻って、確認画面まで進める -->
 <style>
   :root { --green:#06c755; --text:#222; --sub:#777; --light:#b5b5b5; --line:#e6e6e6; --field:#d9d9d9; --bg:#f5f5f5; }
   * { box-sizing:border-box; }
@@ -29,11 +27,6 @@
   .foot { margin-top:auto; text-align:center; padding:24px 16px calc(20px + env(safe-area-inset-bottom)); font-size:12px; color:var(--light); }
   .foot button { background:none; border:0; color:var(--sub); font-size:12px; padding:6px 8px; cursor:pointer; text-decoration:underline; }
   #homeTitle { touch-action:manipulation; -webkit-user-select:none; user-select:none; }
-  .banner { position:fixed; left:12px; right:12px; bottom:calc(16px + env(safe-area-inset-bottom)); max-width:536px; margin:0 auto; background:#222; color:#fff; border-radius:12px; padding:10px 8px 10px 16px; display:flex; align-items:center; gap:8px; font-size:14px; z-index:15; }
-  .banner[hidden] { display:none; }
-  .banner span { flex:1; }
-  .banner button { border:0; border-radius:8px; padding:9px 14px; font-size:14px; background:var(--green); color:#fff; cursor:pointer; }
-  .banner #scClose { background:none; color:#ccc; font-size:20px; padding:4px 10px; }
   .tsec { margin:24px 16px 8px; padding:16px; background:var(--bg); border-radius:8px; }
   .thd { font-size:15px; font-weight:700; }
   .tsub { font-size:12px; color:var(--light); margin:2px 0 8px; }
@@ -41,6 +34,13 @@
   .tl { font-size:12px; color:var(--sub); margin-bottom:2px; }
   .tv { font-size:14px; line-height:1.5; }
   .copybtn { display:block; width:100%; margin-top:14px; background:#fff; border:1px solid var(--field); border-radius:6px; padding:12px; font-size:14px; color:var(--sub); cursor:pointer; }
+  .sheet { position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; }
+  .sheet[hidden] { display:none; }
+  .sheetbox { width:100%; max-width:560px; background:#fff; border-radius:16px 16px 0 0; padding:26px 20px calc(18px + env(safe-area-inset-bottom)); }
+  .sh1 { font-size:19px; font-weight:700; }
+  .sh2 { font-size:13px; color:var(--sub); line-height:1.7; margin:10px 0 20px; }
+  .sheetbox .btn { width:100%; flex:none; padding:17px; font-size:17px; }
+  .sheetbox .later { display:block; margin:10px auto 0; background:none; border:0; color:var(--sub); font-size:14px; padding:10px 16px; cursor:pointer; }
   .toast { position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:rgba(34,34,34,.88); color:#fff; font-size:13px; padding:9px 16px; border-radius:18px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:10; white-space:nowrap; }
   .toast.on { opacity:1; }
   .x { grid-column:3; justify-self:end; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
@@ -225,7 +225,14 @@
   </section>
 
 </div>
-<div class="banner" id="scBanner" hidden><span>ショートカットで読み取った文字を取り込みますか?</span><button id="scTake">取り込む</button><button id="scClose" aria-label="閉じる">×</button></div>
+<div class="sheet" id="scBanner" hidden>
+  <div class="sheetbox">
+    <div class="sh1">読み取ったレシートを取り込みます</div>
+    <div class="sh2">ショートカットで読み取った文字を、このアプリに入れます。<br>「取り込む」を押すと、iPhoneが「ペースト」の許可を聞くので、「ペースト」を押してください。</div>
+    <button class="btn main" id="scTake">取り込む</button>
+    <button class="later" id="scClose">あとで</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <!-- Firebase (同期用。読み込めない時はローカルのみで動作) -->
@@ -303,6 +310,7 @@ function migrateGenres(){
   });
   return changed;
 }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});   // 保存データが勝手に消されにくいように頼む(対応していないときは、何も起きない)
 if (migrateGenres()) saveLocal();   // 起動時: 旧い名前のデータがあれば、新しい名前に直す
 function backToList(){ show("list"); window.scrollTo(0, listScroll); }   // 詳細から戻ったときは、履歴の元の位置に戻す
 function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on", s.id===id)); window.scrollTo(0,0); }
