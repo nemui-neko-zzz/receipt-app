@@ -242,7 +242,7 @@
 <script>
 // 商品名→ジャンル。直したジャンルは learned に覚えて、次から使う。
 /* rules:start */
-const GENRE_RULES = {"tree": [["食費", ["食料品", "外食"]], ["車・交通", ["ガソリン", "駐車・高速", "車用品・整備", "電車・バス"]], ["日用品", []], ["衣類", []], ["医療", []], ["エンタメ", []], ["その他", []]], "storeTypes": [["gas", "石油|ガソリン|エネオス|ENEOS|出光|コスモ|シェル|スタンド|セルフ.*SS|SS$|Dr\\.?Drive"], ["car", "オートバックス|イエローハット|ジェームス"], ["parking", "NEXCO|高速|パーキング|駐車|コインパ|パーク24|タイムズ"], ["rail", "JR|鉄道|電鉄|交通局|タクシー|バス"], ["food_out", "ジョリーパスタ|ココス|ガスト|サイゼリヤ|すき家|吉野家|松屋|マクドナルド|モスバーガー|ケンタッキー|スターバックス|ドトール|タリーズ|コメダ|カフェ|珈琲|喫茶|食堂|レストラン|ラーメン|らーめん|うどん|そば|寿司|すし|焼肉|焼き肉|居酒屋|CoCo壱番屋|ココイチ|さわやか|丸亀|はなまる|バーガー|ステーキ|てんや|天丼|牛丼|ハンバーグ|ファミレス|ミスタードーナツ|ミスド|サーティワン|ピザ|フードコート|イチバン星|きたろう|スシロー|鮨|ダイナー|びっくりドンキー|もつ鍋|丼|藍屋|精養軒|飯田商店|製麺|お結び|ダイニング|酒場|バル|焼鳥|やきとり|とんかつ|カレー|ウエスト|(^|[^A-Za-z])bar($|[^a-z])"], ["medical", "病院|クリニック|医院|歯科|整骨|整体|調剤|診療"], ["drug", "ドラッグ|薬局|クリエイトエス|スギ|ウエルシア|ツルハ|マツモトキヨシ|マツキヨ|V.?drug|ココカラ|サンドラッグ|ダイコク|薬王堂|ドラスト"], ["variety", "ダイソー|セリア|Seria|Can.?Do|キャンドゥ|IKEA|イケア|エンチョー|100えん|100円|コーナン|カインズ|ホームセンター|ニトリ|無印良品|ドン.?キホーテ|ビバホーム|ジョイフル|ホーマック|ロフト|ハンズ|ホームズ|アピタ|ユニー"], ["clothing", "ユニクロ|GU|ジーユー|しまむら|アベイル|ライトオン|洋服|AOKI|青山|ワークマン|ABC.?MART|ZARA|H&M|靴"], ["ent", "快活|ミュージアム|ニンテンドー|ブックオフ|書店|本屋|TSUTAYA|ゲオ|映画|シネマ|カラオケ|ボウリング|ゲームセンター|ホビー|温泉|銭湯|スパ|サウナ|遊園|水族館|動物園|ライブ"], ["misc", "市役所|区役所|役場|郵便局|税務署|法務局|銀行|ATM|証明"], ["super", "スーパー|マックスバリュ|フードストア|エブリィ|マミー|ドミー|オギノ|イオン|ヨシヅヤ|西友|ライフ|コープ|生協|カドイケ|サンサンクック|全日食|ビッグデー|青果|精肉|鮮魚|食品館|マルエツ|ヤオコー|業務スーパー"], ["conv", "セブン|ファミリーマート|ファミマ|ローソン|ミニストップ|デイリーヤマザキ|ヤマザキ|ポプラ|NewDays|ニューデイズ|キヨスク|アンコヤ|ベーカリー|ケーキ|菓子|和菓子|洋菓子|パン屋|ドーナツ|(^|[^A-Za-z])SA($|[^A-Za-z])|(^|[^A-Za-z])PA($|[^A-Za-z])|売店|エスポット|エキナカ"]], "storeDefault": {"gas": "ガソリン", "car": "車用品・整備", "parking": "駐車・高速", "rail": "電車・バス", "food_out": "外食", "medical": "医療", "drug": "日用品", "variety": "日用品", "clothing": "衣類", "ent": "エンタメ", "misc": "その他", "super": "食料品", "conv": "食料品"}, "storeMode": {"gas": "gas", "car": "fixed", "parking": "fixed", "rail": "fixed", "food_out": "fixed", "medical": "fixed", "clothing": "fixed", "ent": "mixed", "misc": "mixed", "drug": "mixed", "variety": "mixed", "super": "mixed", "conv": "mixed"}, "itemRules": [["ガソリン", "ガソリン|ハイオク|軽油|給油|レギュラーガソリン|レギュラー満タン"], ["駐車・高速", "駐車|パーキング|高速|通行料|ETC"], ["車用品・整備", "洗車|オイル交換|エンジンオイル|タイヤ|車検|バッテリ|ワイパー|カー用品|点検"], ["電車・バス", "電車|乗車|切符|バス代|タクシー|運賃"], ["医療", "薬|錠|軟膏|目薬|絆創膏|バンドエイド|マスク|消毒|サプリ|ビタミン|湿布|体温計|うがい|ロキソ|パブロン|漢方|処方|診察|診療|ワクチン|コンタクト|整腸|胃腸|鼻|のど飴|咳"], ["衣類", "シャツ|靴下|ソックス|下着|パンツ|ズボン|ジーンズ|スカート|ワンピ|ジャケット|コート|セーター|スニーカー|サンダル|帽子|手袋|マフラー|タイツ|インナー|パジャマ|ストッキング|ブラジャー|Tシャツ|ベスト|カーディガン"], ["エンタメ", "コミック|漫画|文庫|雑誌|書籍|単行本|DVD|CD|ゲーム|映画|温泉|入浴|入館|入場|チケット|遊園|ボウリング|カラオケ|サウナ|ネットカフェ|ミュージアム|ライブ"], ["日用品", "洗剤|柔軟剤|漂白|ティッシュ|トイレット|トイレ|ラップ|アルミ|ホイル|ポリ袋|ゴミ袋|レジ袋|スポンジ|歯ブラシ|歯磨|シャンプー|リンス|コンディショナ|ボディソープ|石鹸|せっけん|洗顔|化粧|クレンジング|乳液|カミソリ|綿棒|ナプキン|おむつ|オムツ|電池|電球|ノート|文具|テープ|ハサミ|ファイル|バケツ|ハンガー|収納|タオル|ふきん|雑巾|掃除|クリーナー|芳香|消臭|除湿|殺虫|カイロ|マット|キッチンペーパー|クッキングシート|保存容器|タッパ|まな板|フライパン|ライター|肥料|ガムテ|養生|ボールペン|封筒|はがき|切手|ハンドソープ|台所|風呂|トイレ用|ペットボトル用|ゴミ|ネット|ビニール|フィルタ|テーピ|ソフトパック|ポケットティッシュ|油性|排水口|三角コーナー"], ["食料品", "牛乳|パン|卵|玉子|米|ご飯|ごはん|麺|うどん|そば|パスタ|ラーメン|豆腐|納豆|肉|豚|鶏|牛|ひき|ハム|ベーコン|ソーセージ|魚|鮭|さば|刺身|寿司|海苔|野菜|キャベツ|レタス|トマト|きゅうり|人参|にんじん|玉ねぎ|たまねぎ|じゃがいも|大根|白菜|ねぎ|もやし|きのこ|しいたけ|果物|りんご|バナナ|みかん|いちご|ぶどう|レモン|ヨーグルト|チーズ|バター|マーガリン|ジュース|お茶|茶|ミネラルウォーター|天然水|炭酸水|コーヒー|紅茶|ビール|酒|ワイン|チューハイ|ハイボール|焼酎|菓子|チョコ|クッキー|ビスケット|スナック|ポテト|せんべい|アイス|ゼリー|プリン|ケーキ|おにぎり|弁当|サンド|惣菜|唐揚|から揚|コロッケ|フライ|天ぷら|餃子|シュウマイ|カレー|シチュー|ルウ|味噌|みそ|醤油|しょうゆ|砂糖|塩|油|酢|マヨ|ケチャップ|ソース|ドレッシング|だし|出汁|スープ|缶詰|ツナ|サラダ|カップ麺|カップヌードル|カップスープ|冷凍|ちくわ|かまぼこ|こんにゃく|漬物|キムチ|梅|ふりかけ|ジャム|はちみつ|小麦粉|片栗粉|パン粉|ミルク|豆乳|オレンジ|ウインナー|ハンバーグ|ピザ|ドリンク|炭酸|コーラ|サイダー|ガム|キャンディ|飴|グミ|ラムネ|餅|団子|大福|饅頭|まんじゅう|どら焼|煎餅|うなぎ|牡蠣|エビ|えび|いか|たこ|わかめ|ひじき|昆布|おでん|つゆ|調味|ペスカトーレ|カルボナーラ|ミートソース|たらこ|ピラフ|あんこ|いなり|巻|丼|ライス|フルーツ|ナッツ|プロテイン|ゼロ|ストロング|サワー|ネギ|ニラ|ほうれん草|小松菜|ピーマン|なす|ナス|かぼちゃ|ごぼう|れんこん|ブロッコリー|アスパラ|生姜|しょうが|にんにく|ニンニク|大葉|みょうが|水菜|唐辛子|七味|胡椒|スパイス|香辛料"]]};
+const GENRE_RULES = {"tree": [["食費", ["食料品", "外食"]], ["車・交通", ["ガソリン", "駐車・高速", "車用品・整備", "電車・バス"]], ["日用品", []], ["衣類", []], ["医療", []], ["エンタメ", []], ["その他", []]], "storeTypes": [["gas", "石油|ガソリン|エネオス|ENEOS|出光|コスモ|シェル|スタンド|セルフ.*SS|SS$|Dr\\.?Drive"], ["car", "オートバックス|イエローハット|ジェームス"], ["parking", "NEXCO|高速|パーキング|駐車|コインパ|パーク24|タイムズ|道路公社|料金所"], ["rail", "JR|鉄道|電鉄|交通局|タクシー|バス"], ["food_out", "ジョリーパスタ|ココス|ガスト|サイゼリヤ|すき家|吉野家|松屋|マクドナルド|モスバーガー|ケンタッキー|スターバックス|ドトール|タリーズ|コメダ|カフェ|珈琲|喫茶|食堂|レストラン|ラーメン|らーめん|うどん|そば|寿司|すし|焼肉|焼き肉|居酒屋|CoCo壱番屋|ココイチ|さわやか|丸亀|はなまる|バーガー|ステーキ|てんや|天丼|牛丼|ハンバーグ|ファミレス|ミスタードーナツ|ミスド|サーティワン|ピザ|フードコート|イチバン星|きたろう|スシロー|鮨|ダイナー|びっくりドンキー|もつ鍋|丼|藍屋|精養軒|飯田商店|製麺|お結び|ダイニング|酒場|バル|焼鳥|やきとり|とんかつ|カレー|ウエスト|(^|[^A-Za-z])bar($|[^a-z])|メンチ|定食"], ["medical", "病院|クリニック|医院|歯科|整骨|整体|調剤|診療"], ["drug", "ドラッグ|薬局|クリエイトエス|スギ|ウエルシア|ツルハ|マツモトキヨシ|マツキヨ|V.?drug|ココカラ|サンドラッグ|ダイコク|薬王堂|ドラスト"], ["variety", "ダイソー|セリア|Seria|Can.?Do|キャンドゥ|IKEA|イケア|エンチョー|100えん|100円|コーナン|カインズ|ホームセンター|ニトリ|無印良品|ドン.?キホーテ|ビバホーム|ジョイフル|ホーマック|ロフト|ハンズ|ホームズ|アピタ|ユニー"], ["clothing", "ユニクロ|GU|ジーユー|しまむら|アベイル|ライトオン|洋服|AOKI|青山|ワークマン|ABC.?MART|ZARA|H&M|靴"], ["ent", "快活|ミュージアム|ニンテンドー|ブックオフ|書店|本屋|TSUTAYA|ゲオ|映画|シネマ|カラオケ|ボウリング|ゲームセンター|ホビー|温泉|銭湯|スパ|サウナ|遊園|水族館|動物園|ライブ"], ["misc", "市役所|区役所|役場|郵便局|税務署|法務局|銀行|ATM|証明"], ["super", "スーパー|マックスバリュ|フードストア|エブリィ|マミー|ドミー|オギノ|イオン|ヨシヅヤ|西友|ライフ|コープ|生協|カドイケ|サンサンクック|全日食|ビッグデー|青果|精肉|鮮魚|食品館|マルエツ|ヤオコー|業務スーパー"], ["conv", "セブン|ファミリーマート|ファミマ|ローソン|ミニストップ|デイリーヤマザキ|ヤマザキ|ポプラ|NewDays|ニューデイズ|キヨスク|アンコヤ|ベーカリー|ケーキ|菓子|和菓子|洋菓子|パン屋|ドーナツ|(^|[^A-Za-z])SA($|[^A-Za-z])|(^|[^A-Za-z])PA($|[^A-Za-z])|売店|エスポット|エキナカ"]], "storeDefault": {"gas": "ガソリン", "car": "車用品・整備", "parking": "駐車・高速", "rail": "電車・バス", "food_out": "外食", "medical": "医療", "drug": "日用品", "variety": "日用品", "clothing": "衣類", "ent": "エンタメ", "misc": "その他", "super": "食料品", "conv": "食料品"}, "storeMode": {"gas": "gas", "car": "fixed", "parking": "fixed", "rail": "fixed", "food_out": "fixed", "medical": "fixed", "clothing": "fixed", "ent": "mixed", "misc": "mixed", "drug": "mixed", "variety": "mixed", "super": "mixed", "conv": "mixed"}, "itemRules": [["ガソリン", "ガソリン|ハイオク|軽油|給油|レギュラーガソリン|レギュラー満タン"], ["駐車・高速", "駐車|パーキング|高速|通行料|ETC|普通車|軽自動車|大型車|中型車|特大車|通行"], ["車用品・整備", "洗車|オイル交換|エンジンオイル|タイヤ|車検|バッテリ|ワイパー|カー用品|点検"], ["電車・バス", "電車|乗車|切符|バス代|タクシー|運賃"], ["医療", "薬|錠|軟膏|目薬|絆創膏|バンドエイド|マスク|消毒|サプリ|ビタミン|湿布|体温計|うがい|ロキソ|パブロン|漢方|処方|診察|診療|ワクチン|コンタクト|整腸|胃腸|鼻|のど飴|咳"], ["衣類", "シャツ|靴下|ソックス|下着|パンツ|ズボン|ジーンズ|スカート|ワンピ|ジャケット|コート|セーター|スニーカー|サンダル|帽子|手袋|マフラー|タイツ|インナー|パジャマ|ストッキング|ブラジャー|Tシャツ|ベスト|カーディガン"], ["エンタメ", "コミック|漫画|文庫|雑誌|書籍|単行本|DVD|CD|ゲーム|映画|温泉|入浴|入館|入場|チケット|遊園|ボウリング|カラオケ|サウナ|ネットカフェ|ミュージアム|ライブ"], ["日用品", "洗剤|柔軟剤|漂白|ティッシュ|トイレット|トイレ|ラップ|アルミ|ホイル|ポリ袋|ゴミ袋|レジ袋|スポンジ|歯ブラシ|歯磨|シャンプー|リンス|コンディショナ|ボディソープ|石鹸|せっけん|洗顔|化粧|クレンジング|乳液|カミソリ|綿棒|ナプキン|おむつ|オムツ|電池|電球|ノート|文具|テープ|ハサミ|ファイル|バケツ|ハンガー|収納|タオル|ふきん|雑巾|掃除|クリーナー|芳香|消臭|除湿|殺虫|カイロ|マット|キッチンペーパー|クッキングシート|保存容器|タッパ|まな板|フライパン|ライター|肥料|ガムテ|養生|ボールペン|封筒|はがき|切手|ハンドソープ|台所|風呂|トイレ用|ペットボトル用|ゴミ|ネット|ビニール|フィルタ|テーピ|ソフトパック|ポケットティッシュ|油性|排水口|三角コーナー"], ["食料品", "牛乳|パン|卵|玉子|米|ご飯|ごはん|麺|うどん|そば|パスタ|ラーメン|豆腐|納豆|肉|豚|鶏|牛|ひき|ハム|ベーコン|ソーセージ|魚|鮭|さば|刺身|寿司|海苔|野菜|キャベツ|レタス|トマト|きゅうり|人参|にんじん|玉ねぎ|たまねぎ|じゃがいも|大根|白菜|ねぎ|もやし|きのこ|しいたけ|果物|りんご|バナナ|みかん|いちご|ぶどう|レモン|ヨーグルト|チーズ|バター|マーガリン|ジュース|お茶|茶|ミネラルウォーター|天然水|炭酸水|コーヒー|紅茶|ビール|酒|ワイン|チューハイ|ハイボール|焼酎|菓子|チョコ|クッキー|ビスケット|スナック|ポテト|せんべい|アイス|ゼリー|プリン|ケーキ|おにぎり|弁当|サンド|惣菜|唐揚|から揚|コロッケ|フライ|天ぷら|餃子|シュウマイ|カレー|シチュー|ルウ|味噌|みそ|醤油|しょうゆ|砂糖|塩|油|酢|マヨ|ケチャップ|ソース|ドレッシング|だし|出汁|スープ|缶詰|ツナ|サラダ|カップ麺|カップヌードル|カップスープ|冷凍|ちくわ|かまぼこ|こんにゃく|漬物|キムチ|梅|ふりかけ|ジャム|はちみつ|小麦粉|片栗粉|パン粉|ミルク|豆乳|オレンジ|ウインナー|ハンバーグ|ピザ|ドリンク|炭酸|コーラ|サイダー|ガム|キャンディ|飴|グミ|ラムネ|餅|団子|大福|饅頭|まんじゅう|どら焼|煎餅|うなぎ|牡蠣|エビ|えび|いか|たこ|わかめ|ひじき|昆布|おでん|つゆ|調味|ペスカトーレ|カルボナーラ|ミートソース|たらこ|ピラフ|あんこ|いなり|巻|丼|ライス|フルーツ|ナッツ|プロテイン|ゼロ|ストロング|サワー|ネギ|ニラ|ほうれん草|小松菜|ピーマン|なす|ナス|かぼちゃ|ごぼう|れんこん|ブロッコリー|アスパラ|生姜|しょうが|にんにく|ニンニク|大葉|みょうが|水菜|唐辛子|七味|胡椒|スパイス|香辛料|ジョージア|コカ|伊右衛門|綾鷹|ボス|ポカリ|アクエリ|午後の紅茶|チキン"]]};
 /* rules:end */
 const STORE_RX = GENRE_RULES.storeTypes.map(([t, p]) => [t, new RegExp(p, "i")]);
 const ITEM_RX = GENRE_RULES.itemRules.map(([g, p]) => [g, new RegExp(p)]);
@@ -587,9 +587,16 @@ renderList();
 function parseReceiptText(raw, knownStores) {
   const text = String(raw || "")
     .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    .replace(/￥/g, "¥").replace(/，/g, ",").replace(/：/g, ":").replace(/／/g, "/").replace(/[・·]/g, "");
+    .replace(/￥/g, "¥").replace(/，/g, ",").replace(/：/g, ":").replace(/／/g, "/").replace(/[・·]/g, "").replace(/言十/g, "計");   // 「計」が「言十」と読まれることがある
   const nf = text.replace(/\s+/g, "");
-  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const lines = [];   // 1文字ずつ改行された語(「合」「計」、「領」「収」)は、つなげる
+  let joinable = false;
+  for (const l of text.split(/\n/).map(x => x.trim()).filter(Boolean)) {
+    const one = /^[一-龥]$/.test(l);
+    if (one && joinable) { lines[lines.length - 1] += l; continue; }
+    lines.push(l); joinable = one;
+  }
+  const num = s => Number(s.replace(/[,\s]/g, ""));
   const hasLines = lines.length >= 3;
 
   // 日付: 4桁の年があればそれ。先頭の「2」が欠けた「026年」のような読み間違いも、年の数字2桁から補う。先に出てくる方を採用
@@ -605,24 +612,65 @@ function parseReceiptText(raw, knownStores) {
     if (tm) { const h = Number(tm[1] ?? tm[3]), mi = Number(tm[2] ?? tm[4]); if (h < 24 && mi < 60) time = String(h).padStart(2, "0") + ":" + String(mi).padStart(2, "0"); }
   }
 
-  // 合計: 「合計」の後ろ → 「支払/お買上/請求」の後ろの¥金額 → ¥金額の最大値
-  const num = s => Number(s.replace(/,/g, ""));
+  // 合計: 行ごとに、目印(合計・小計+税・台計 → 対象計 → 支払 → 小計)の次の金額を探す。見つからなければ、¥金額の最大値
+  //   改行を消してつなぐと、となりの行の数字がくっつく(¥200 + 8%内税 → 2008)ので、行ごとに見る
+  const AMT = /^¥?\s*(\d{1,3}(?:,\s?\d{3})+|\d{1,7})\s*円?\s*[※*軽]?\s*[）)]?$/;   // 金額だけの行(%の付く数字は金額にしない)
+  const valueAfter = (i, from, win, stop) => {   // 目印の行の続き、または次の数行にある金額
+    const rest = lines[i].slice(from).replace(/^[\s:：]+/, "");
+    let m = rest && AMT.exec(rest);
+    if (m) return num(m[1]);
+    for (let j = i + 1; j <= i + win && j < lines.length; j++) {
+      if (stop && stop.test(lines[j])) break;
+      if ((m = AMT.exec(lines[j]))) return num(m[1]);
+    }
+    return null;
+  };
+  const STOP = /^(?:お預り|お預かり|お釣|おつり|釣銭)/;
   let total = null, m;
-  if ((m = /(?:合計|現計|お会計|総計)[^\d¥]{0,3}¥?(\d[\d,]*)/.exec(nf))) total = num(m[1]);
-  else if ((m = /(?:支払|お買上げ?|請求|お預り?)[^\d¥]{0,6}¥(\d[\d,]*)/.exec(nf))) total = num(m[1]);
-  else if ((m = /小計[^\d¥]{0,3}¥?(\d[\d,]*)/.exec(nf))) total = num(m[1]);
-  else { const all = (nf.match(/¥(\d[\d,]*)/g) || []).map(s => num(s.slice(1))); if (all.length) total = Math.max(...all); }
+  if (hasLines) {
+    const TIERS = [
+      [/^[（(]?(?:合計|現計|お会計|総計|ご?請求額|税込合計|小計[＋+]税|台計)(?![点数個])/, 6],   // 「税合計」は税額なので入れない
+      [/対象計|税込対象額/, 3],
+      [/^(?:クレジット(?!売上)|電子マネー|お?支払(?!方法|区分)|カード払)/, 2],
+      [/^小計/, 2],
+    ];
+    for (const [re, win] of TIERS) {
+      for (let i = 0; i < lines.length && total === null; i++) { const mm = re.exec(lines[i]); if (mm) total = valueAfter(i, mm.index + mm[0].length, win, STOP); }
+      if (total !== null) break;
+    }
+    if (total === null) { const all = lines.flatMap(l => [...l.matchAll(/¥\s*(\d{1,3}(?:,\d{3})+|\d+)/g)].map(x => num(x[1]))); if (all.length) total = Math.max(...all); }
+  } else {
+    const nt = nf.replace(/税合計/g, "税額");
+    if ((m = /(?:合計|現計|お会計|総計)[^\d¥]{0,3}¥?(\d[\d,]*)/.exec(nt))) total = num(m[1]);
+    else if ((m = /(?:支払|お買上げ?|請求|お預り?)[^\d¥]{0,6}¥(\d[\d,]*)/.exec(nt))) total = num(m[1]);
+    else if ((m = /小計[^\d¥]{0,3}¥?(\d[\d,]*)/.exec(nt))) total = num(m[1]);
+    else { const all = (nt.match(/¥(\d[\d,]*)/g) || []).map(s => num(s.slice(1))); if (all.length) total = Math.max(...all); }
+  }
 
   // 店名: 前に保存した店名が文字に入っていればそれ。なければ、改行があれば最初の日本語の行、なければ電話番号などの手前の末尾
   let store = (knownStores || []).find(s => s && nf.includes(s.replace(/\s+/g, ""))) || "";
   if (!store) {
     if (hasLines) {
-      const CORP = /[（(]株[）)]|株式会社|[（(]有[）)]|有限会社/g;   // 「(株)〇〇」の行があれば、それを店名にする。なければ、最初の日本語の行
-      const corp = lines.find(l => new RegExp(CORP.source).test(l));
+      const CORP = /[（(]株[）)]|株式会社|[（(]有[）)]|有限会社/g;
       const BRAND = { welcia:"ウエルシア", familymart:"ファミリーマート", lawson:"ローソン", sevenelevenjapan:"セブンイレブン", "7-eleven":"セブンイレブン", ministop:"ミニストップ", daiso:"ダイソー", sugi:"スギ薬局", matsukiyo:"マツモトキヨシ", tsuruha:"ツルハドラッグ", cocokara:"ココカラファイン" };
+      const PHONE = /0\d{1,4}-\d{1,4}-\d{3,4}/, isCorp = l => new RegExp(CORP.source).test(l);
+      const phoneIdx = lines.findIndex(l => PHONE.test(l));
+      const NOT_STORE = /領収|レシート|納品|[領預].{0,2}書|登録|ありがとう|はこちら|お客|点数|クレジット|会員|カード|レジ|担当|http|www|様$/;   // 店名ではない定型の行
+      const ADDR = /[都道府県].*[市区町村郡]|[市区町村郡].*\d|^\d/;   // 住所の行(「静岡県道路公社」のように市区町村がなければ住所ではない)
+      const clean = s => s.replace(PHONE, "").replace(/(?:TEL|Tel|tel|電話)[:：]?/g, "").replace(/https?:\/\/\S+/g, "").trim().split(/\s+/).filter((t, _, a) => a.length === 1 || t.length > 1).join("");   // 電話番号・URL・読み取りのごみ(1文字だけの語)を外す
+      const okStore = l => /[ぁ-んァ-ン一-龥]{2,}/.test(l) && !NOT_STORE.test(l) && !ADDR.test(l) && !(/[ぁ-ん]/.test(l) && /[ァ-ン]/.test(l) && /[一-龥]/.test(l));   // ひらがな・カタカナ・漢字が全部まざった行は、読み間違いが多いので使わない
+      // 「(株)〇〇」の行が(電話番号より前に)あれば、それを店名にする
+      const corp = lines.find((l, i) => isCorp(l) && (phoneIdx < 0 || i < phoneIdx));
       const head = lines.slice(0, 6).filter(l => /[A-Za-zぁ-んァ-ン一-龥]{2,}/.test(l) && !/領収|レシート|納品書|登録番号|TEL|電話|〒|[＜＞<>]|\d{2,4}-\d{2,4}-\d{3,4}|\d{4}[\/年]/.test(l));
-      const brandBranch = (head.length >= 2 && !/店$/.test(head[0].trim()) && /店$/.test(head[1].trim())) ? (BRAND[head[0].toLowerCase().replace(/\s+/g, "")] || head[0].trim()) + head[1].trim() : "";   // 「welcia」+「御殿場富士岡店」→「ウエルシア御殿場富士岡店」
-      store = corp ? corp.replace(CORP, "").trim() : (brandBranch || lines.slice(0, 6).find(l => /[ぁ-んァ-ン一-龥]{2,}/.test(l) && !/領収|レシート|納品書|登録番号|TEL|電話|〒|\d{2,4}-\d{2,4}-\d{3,4}/.test(l)) || "");
+      const bk = head[0] ? head[0].toLowerCase().replace(/\s+/g, "") : "";
+      const brandBranch = (head.length >= 2 && (BRAND[bk] || /[ぁ-んァ-ン一-龥]/.test(head[0])) && !/店$/.test(head[0].trim()) && /店$/.test(head[1].trim())) ? (BRAND[bk] || head[0].trim()) + head[1].trim() : "";   // 「welcia」+「御殿場富士岡店」→「ウエルシア御殿場富士岡店」(英字だけで知らない名前は使わない)
+      // 電話番号の行の手前(最大3行)+その行の電話番号より前の文字 → 「サミット」+「亀有駅北店」
+      const near = phoneIdx < 0 ? "" : [...lines.slice(Math.max(0, phoneIdx - 3), phoneIdx), lines[phoneIdx]].map(clean).filter(okStore).slice(-3).join("");
+      const corpAny = lines.find(isCorp);
+      store = corp ? corp.replace(CORP, "").trim()
+        : brandBranch || (near.length <= 30 ? near : "")
+        || (corpAny ? corpAny.replace(CORP, "").trim() : "")
+        || lines.slice(0, 6).map(clean).find(okStore) || "";
     } else {
       const head = nf.split(/\d{2,4}-\d{2,4}-\d{3,4}|TEL|登録番号|〒/)[0];
       store = head.length < nf.length && head.length <= 60 ? head.slice(-20) : "";   // 区切りが見つからない/長すぎるときは当てずっぽうにしない
@@ -632,34 +680,58 @@ function parseReceiptText(raw, knownStores) {
   // 明細: 改行がある文字だけ。ヘッダー(店名・日付・電話など)の終わりから、最初の合計の行までを見る
   const items = [];
   if (hasLines) {
-    const totalIdx = lines.findIndex(l => /合計|小計|お買上|ご請求|お支払|内税|外税|対象額|消費税|税込|^合$/.test(l));
+    const totalIdx = lines.findIndex(l => /合計|小計|台計|現計|お買上|ご請求|お支払|内税|外税|対象額|対象計|消費税|税込/.test(l));
     const end = totalIdx >= 0 ? totalIdx : lines.length;
     const HEADER = /登録番号|TEL|電話|\d{4}[\/年.\-]\d{1,2}[\/月.\-]\d{1,2}|\d{1,2}:\d{2}|領収|納品書|レシート|レジ|会員|カード|X{4,}|\*{4,}|^No\.?\s*\d+/;
     let start = 0;
     lines.slice(0, end).forEach((l, i) => { if (HEADER.test(l)) start = i + 1; });
-    const NOISE = /値引|割引|クーポン|承認|番号|区分|支払|一括|会員|カード|ビザ|マスター|APL|AID|CREDIT|伝票|売上|日時|クレジット|ご利用|ありがとう|税|対象|明細|通り|軽減|レジ|責|領収|納品|登録|様|係員|端末|通番|有効期限/;   // レシートの定型文は、商品名にしない
+    const NOISE = /値引|割引|クーポン|承認|番号|区分|支払|一括|会員|カード|ビザ|マスター|APL|AID|CREDIT|伝票|売上|日時|クレジット|ご利用|ありがとう|税|対象|明細|通り|軽減|レジ|責|領収|納品|登録|様|係員|端末|通番|有効期限|訂正|取消|取り消し|返品|数量|単価|VISA|Visa|JCB|AMEX/;   // レシートの定型文は、商品名にしない
     const PRICE = /^¥?\s*(\d{1,3}(?:,\d{3})+|\d{2,6})\s*円?\s*[※*軽]?$/;                  // 金額だけの行
     const SAME = /^(.*?[^\d\s¥,.])\s*¥?\s*(\d{1,3}(?:,\d{3})+|\d{2,6})\s*[※*軽]?$/;      // 「商品名 金額」の行
     const isName = l => /[ぁ-んァ-ン一-龥A-Za-z]{2,}/.test(l) && !/^[@¥]/.test(l) && !/^\d+(\.\d+)?\s*[A-Za-zコ個点本袋枚]/.test(l) && !/X{4,}|\*{4,}/.test(l) && !NOISE.test(l);
-    const seq = [];
-    for (const l of lines.slice(start, end)) {
+    // ガソリン: 「ハイオク」「レギュラー」「軽油」の行のあとに、数量・単価などの見出しが並ぶので、¥の付いた金額(と、その次のマイナスの値引き)を探す
+    let gas = null;
+    const gi = lines.findIndex((l, i) => i < end && /^(?:ハイオク|レギュラー|軽油|ガソリン|灯油)/.test(l));
+    if (gi >= 0) {
+      const pi = lines.findIndex((l, i) => i > gi && i < end && /^¥\s*\d/.test(l));
+      if (pi >= 0) {
+        const g = [{ n: lines[gi].replace(/\s+/g, ""), p: num(/\d[\d,]*/.exec(lines[pi])[0]) }];
+        for (let k = pi + 1; k < end; k++) { const d = /^[-−▲△]\s*¥?\s*(\d[\d,]*)$/.exec(lines[k]); if (d) g.push({ n: "値引き", p: -num(d[1]) }); }
+        if (total === null || g.reduce((a, x) => a + x.p, 0) === total) gas = g;
+      }
+    }
+    const seq = [], body = lines.slice(start, end);
+    body.forEach((l, bi) => {
       let m;
-      if ((m = PRICE.exec(l))) seq.push({ p: num(m[1]) });
+      if ((m = /^[-−▲△]\s*¥?\s*(\d[\d,]*)$/.exec(l)) && bi > 0 && /訂正|取消|取り消し|返品/.test(body[bi - 1])) seq.push({ cancel: num(m[1]) });   // 「訂正 -390」: 同じ金額の直前の品目を取り消す
+      else if ((m = PRICE.exec(l))) seq.push({ p: num(m[1]) });
       else if ((m = SAME.exec(l)) && isName(m[1])) seq.push({ both: { n: m[1].trim(), p: num(m[2]) } });   // 同じ行に商品名と金額
       else if (isName(l)) seq.push({ n: l.replace(/[※*軽]$/, "").trim() });
+    });
+    // 商品名が2つ以上続いたあとに、同じ数以上の金額が続くときは、順に組にする(「ライス並」「大盛」→ 260、80)
+    for (let i = 0; i < seq.length; ) {
+      if (seq[i].n === undefined) { i++; continue; }
+      let k = 0, q = 0;
+      while (seq[i + k] && seq[i + k].n !== undefined) k++;
+      while (seq[i + k + q] && seq[i + k + q].p !== undefined) q++;
+      if (k >= 2 && q >= k) { const pairs = []; for (let t = 0; t < k; t++) pairs.push({ both: { n: seq[i + t].n, p: seq[i + k + t].p } }); seq.splice(i, 2 * k, ...pairs); i += k; }
+      else i += k;
     }
-    const hasBoth = seq.some(x => x.both), names = seq.filter(x => x.n !== undefined).map(x => x.n), prices = seq.filter(x => x.p !== undefined).map(x => x.p);
-    if (!hasBoth && prices.length && names.length === prices.length) names.forEach((n, i) => items.push({ n, p: prices[i] }));   // 商品名の列と金額の列が別々でも、数が合えば順に組にする
-    else if (!hasBoth && !prices.length && names.length === 1 && total !== null) items.push({ n: names[0], p: total });   // 金額が別の場所に出て見つからないが、商品名が1つだけなら、合計を金額にする
+    const hasBoth = seq.some(x => x.both), hasCancel = seq.some(x => x.cancel !== undefined), names = seq.filter(x => x.n !== undefined).map(x => x.n), prices = seq.filter(x => x.p !== undefined).map(x => x.p);
+    if (gas) items.push(...gas);
+    else if (!hasBoth && !hasCancel && prices.length && names.length === prices.length) names.forEach((n, i) => items.push({ n, p: prices[i] }));   // 商品名の列と金額の列が別々でも、数が合えば順に組にする
+    else if (!hasBoth && !hasCancel && !prices.length && names.length === 1 && total !== null) items.push({ n: names[0], p: total });   // 金額が別の場所に出て見つからないが、商品名が1つだけなら、合計を金額にする
     else {   // 順番に見て、「同じ行の組」と「商品名の次の行の金額」を、どちらも拾う。商品名の後に金額が2つ続くとき(単価と金額)は、大きい方
       let pending = null, last = null;
       seq.forEach(x => {
-        if (x.both) { items.push(x.both); pending = null; last = null; }
+        if (x.cancel !== undefined) { const j = items.map(t => t.p).lastIndexOf(x.cancel); if (j >= 0) items.splice(j, 1); pending = null; last = null; }
+        else if (x.both) { items.push(x.both); pending = null; last = null; }
         else if (x.n !== undefined) { pending = x.n; last = null; }
         else if (pending !== null) { last = { n: pending, p: x.p }; items.push(last); pending = null; }
         else if (last) last.p = Math.max(last.p, x.p);
       });
     }
+    items.forEach(it => { it.n = it.n.replace(/^\d{3,}\s*(?=\D)/, ""); });   // 「0002普通車」→「普通車」(先頭の数字は商品コード)
     // 値引き: 「値引」「割引」「クーポン」の行(か、その次の行)にマイナスの金額があれば、マイナスの品目にして、合計と合うようにする
     if (items.length) {
       const gIdx = lines.findIndex(l => /合計/.test(l)), dEnd = gIdx >= 0 ? gIdx : lines.length;
@@ -674,6 +746,10 @@ function parseReceiptText(raw, knownStores) {
     const isum = items.reduce((a, i) => a + i.p, 0);
     if (items.length && total !== null && isum !== total) {
       const taxes = [...nf.matchAll(/(?:税額|消費税)[^\d¥]{0,3}¥?(\d[\d,]*)/g)].map(m => num(m[1])), diff = total - isum;
+      lines.forEach((l, i) => {   // 「外8% ¥23」「(税合計 ¥23)」のように、行ごとに書かれた税額も拾う
+        const mm = /^[（(]?(?:外\s?\d+(?:\.\d+)?\s?[%％]|税合計|消費税|税額)/.exec(l);
+        if (mm) { const v = valueAfter(i, mm[0].length, 2); if (v !== null && !taxes.includes(v)) taxes.push(v); }
+      });
       const hit = diff > 0 && (taxes.includes(diff) || (taxes.length >= 2 && taxes[0] + taxes[1] === diff));
       if (hit) items.push({ n: "消費税", p: diff });
     }
@@ -791,14 +867,10 @@ else if (location.hash.startsWith("#t=")) {
   if (t) startFromText(t);
 }
 // 「ショートカットで読み取る」: ショートカットアプリを呼び出し、読んだ文字を付けてこのページに戻ってもらう
-const isStandalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
 const scName = encodeURIComponent("レシート読み取り");
-// 全画面のアプリ: 戻り先を指定すると、アプリではなくブラウザ(Safari)が開いてしまう(データも別になる)ので、戻り先は指定しない。
-//   ショートカットが、読んだ文字をクリップボードに入れる → 左上の「◀ レシート」でアプリに戻る → 下の「取り込む」を押す
-// Safariで開いているとき: 読んだ文字を付けて、このページに戻ってもらう
-$("scLink").href = isStandalone
-  ? "shortcuts://run-shortcut?name=" + scName
-  : "shortcuts://x-callback-url/run-shortcut?name=" + scName + "&x-success=" + encodeURIComponent(location.origin + location.pathname);
+// 戻り先(このページのURL)を付けて呼び出す。ショートカットが終わると、Safariでこのページが開き、読んだ文字が入って確認画面まで進む。
+//   ホーム画面のアプリから押したときも同じ。読み取りの間だけSafariに移る(Safari側の保存データは別。同期をONにしておけば、保存したレシートはアプリにも入る)
+$("scLink").href = "shortcuts://x-callback-url/run-shortcut?name=" + scName + "&x-success=" + encodeURIComponent(location.origin + location.pathname);
 $("scLink").addEventListener("click", () => localStorage.setItem("scWait", String(Date.now())));
 // ショートカットから戻ってきたら、まず自動で取り込みを試す(許可されていれば、押さなくても入る)。だめなら「取り込む」ボタンを出す
 let scTried = 0;
