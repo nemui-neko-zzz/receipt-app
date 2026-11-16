@@ -40,6 +40,7 @@
   .trow { padding:10px 0; border-top:1px solid var(--line); }
   .tl { font-size:12px; color:var(--sub); margin-bottom:2px; }
   .tv { font-size:14px; line-height:1.5; }
+  .copybtn { display:block; width:100%; margin-top:14px; background:#fff; border:1px solid var(--field); border-radius:6px; padding:12px; font-size:14px; color:var(--sub); cursor:pointer; }
   .toast { position:fixed; left:50%; bottom:calc(90px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:rgba(34,34,34,.88); color:#fff; font-size:13px; padding:9px 16px; border-radius:18px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:10; white-space:nowrap; }
   .toast.on { opacity:1; }
   .x { grid-column:3; justify-self:end; width:40px; height:40px; background:none; border:0; font-size:28px; font-weight:200; color:var(--text); cursor:pointer; line-height:1; }
@@ -215,6 +216,7 @@
       <div class="sumrow"><span>合計</span><input class="field" id="eTotal" type="number" inputmode="numeric"></div>
       <div class="warn" id="warn" hidden></div>
       <div class="note" id="note"></div>
+      <button class="copybtn" id="copyResult">読み取り結果をコピー</button>
     </div>
     <div class="actions">
       <button class="btn" id="remove">削除</button>
@@ -564,7 +566,7 @@ $("cancel").onclick = () => { if (cur && cur.id !== null) show("detail"); else b
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
 $("save").onclick = () => {
   cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0);
-  cur.items.forEach(i => { delete i.a; });
+  cur.items.forEach(i => { delete i.a; }); delete cur.raw; delete cur.init; delete cur.address;   // 読み取りの全文・比較用のデータ・住所は、レシートには残さない
   if (cur.store !== "(店名なし)") [cur.phone, cur.reg].filter(Boolean).forEach(k => { storeMap[k] = cur.store; });   // 次から同じ店は自動で入る
   if (cur.id === null) { cur.id = Date.now(); receipts.push(cur); }
   else receipts = receipts.map(r=>r.id===cur.id ? cur : r);
@@ -678,6 +680,31 @@ function parseReceiptText(raw, knownStores) {
 }
 
 // ---- 文字から追加(貼り付け / ショートカットからのリンク) ----
+// ---- 読み取り結果をコピー(精度の見直し用): 読み取った全文 + アプリが反映した結果 + いまの入力内容 ----
+const num0 = n => Number(n || 0).toLocaleString();
+function resultBlock(o){
+  const sum = o.items.reduce((t, i) => t + Number(i.p || 0), 0), L = ["店名: " + (o.store || "")];
+  if (o.phone) L.push("電話: " + o.phone); if (o.address) L.push("住所: " + o.address); if (o.reg) L.push("登録番号: " + o.reg);
+  L.push("日付: " + (o.date || "") + (o.time ? " " + o.time : ""), "合計: " + num0(o.total) + "円", "品目:");
+  o.items.forEach(i => L.push("  - " + (i.n || "(空)") + " " + num0(i.p) + "円 [" + i.c + "]"));
+  L.push("品目の合計: " + num0(sum) + "円" + (sum === Number(o.total || 0) ? "(合計と一致)" : "(合計との差 " + num0(Number(o.total || 0) - sum) + "円)"));
+  return L.join("\n");
+}
+function copyText(){
+  const dt = $("eDate").value || "", now = { store:$("eStore").value, phone:cur.phone, address:cur.address, reg:cur.reg, date:dt.slice(0, 10), time:dt.slice(11, 16), total:Number($("eTotal").value || 0), items:cur.items };
+  const norm = o => JSON.stringify([o.store, o.date, o.time, Number(o.total), o.items.map(i => [i.n, Number(i.p), i.c])]);
+  const parts = [];
+  if (cur.raw) parts.push("【読み取った全文】\n" + cur.raw.trim());
+  if (cur.init && norm(cur.init) !== norm(now)) { parts.push("【アプリが最初に反映した結果】\n" + resultBlock({ ...cur.init, phone:cur.phone, address:cur.address, reg:cur.reg })); parts.push("【いまの入力内容(直したあと)】\n" + resultBlock(now)); }
+  else parts.push((cur.init ? "【アプリが反映した結果(直していません)】\n" : "【いまの入力内容】\n") + resultBlock(now));
+  return parts.join("\n\n");
+}
+async function copyToClipboard(t){
+  try { await navigator.clipboard.writeText(t); return true; }
+  catch { const ta = document.createElement("textarea"); ta.value = t; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch {} ta.remove(); return ok; }
+}
+$("copyResult").onclick = async () => showToast(await copyToClipboard(copyText()) ? "コピーしました" : "コピーできませんでした");
+
 function startFromText(text){
   const r = parseReceiptText(text, receipts.map(x => x.store));
   const mine = storeMap[r.phone] || storeMap[r.reg] || "";   // 前に確認した店なら、その名前
@@ -685,7 +712,8 @@ function startFromText(text){
   const items = r.items.length ? r.items.map(i => ({...i, a:1, c: guess(i.n, store)})) : [{ n:"", p:r.total || 0, c:"その他", a:1 }];
   const big = items.filter(i => i.p > 0 && i.n !== "消費税").sort((x, y) => y.p - x.p)[0];
   items.forEach((i, k) => { if (i.p < 0 && k > 0) i.c = items[k-1].c; else if (i.n === "消費税" && big) i.c = big.c; });   // 値引きは直前の品目、消費税は一番高い品目のジャンル
-  openEdit({ id:null, store, phone:r.phone, reg:r.reg, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items }, null);
+  const first = { store, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items:items.map(i => ({ n:i.n, p:i.p, c:i.c })) };   // アプリが最初に反映した結果(あとで直したかの比較用)
+  openEdit({ id:null, store, phone:r.phone, reg:r.reg, address:r.address, date:first.date, time:first.time, total:first.total, items, raw:text, init:first }, null);
   $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "");
   if (!mine) suggestStores({ address:r.address, phone:r.phone, store:r.store });
 }
@@ -757,18 +785,33 @@ else if (location.hash.startsWith("#t=")) {
 // 「ショートカットで読み取る」: ショートカットアプリを呼び出し、読んだ文字を付けてこのページに戻ってもらう
 const isStandalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
 const scName = encodeURIComponent("レシート読み取り");
-$("scLink").href = "shortcuts://x-callback-url/run-shortcut?name=" + scName + "&x-success=" + encodeURIComponent(location.origin + location.pathname);   // 全画面のアプリも、終了後に同じURLへ戻る(実機で動作確認済み)
+// 全画面のアプリ: 戻り先を指定すると、アプリではなくブラウザ(Safari)が開いてしまう(データも別になる)ので、戻り先は指定しない。
+//   ショートカットが、読んだ文字をクリップボードに入れる → 左上の「◀ レシート」でアプリに戻る → 下の「取り込む」を押す
+// Safariで開いているとき: 読んだ文字を付けて、このページに戻ってもらう
+$("scLink").href = isStandalone
+  ? "shortcuts://run-shortcut?name=" + scName
+  : "shortcuts://x-callback-url/run-shortcut?name=" + scName + "&x-success=" + encodeURIComponent(location.origin + location.pathname);
 $("scLink").addEventListener("click", () => localStorage.setItem("scWait", String(Date.now())));
-// ショートカットから戻ってきたら「取り込む」を出す(クリップボードの文字を読むには、タップが必要)
-function checkScWait(){ const t = Number(localStorage.getItem("scWait") || 0); $("scBanner").hidden = !(t && Date.now() - t < 10 * 60 * 1000); }
+// ショートカットから戻ってきたら、まず自動で取り込みを試す(許可されていれば、押さなくても入る)。だめなら「取り込む」ボタンを出す
+let scTried = 0;
+function importClipText(x){   // 取り込めたら true。同じ文字の2回取り込みと、「読み取り結果をコピー」で入れた文字は、取り込まない
+  if (!x || x.trim().length < 15 || /^【/.test(x.trim()) || x === localStorage.getItem("scLast")) return false;
+  localStorage.setItem("scLast", x); localStorage.removeItem("scWait"); $("scBanner").hidden = true; startFromText(x); return true;
+}
+function checkScWait(){
+  const t = Number(localStorage.getItem("scWait") || 0), fresh = t && Date.now() - t < 10 * 60 * 1000;
+  $("scBanner").hidden = !fresh;
+  if (fresh && scTried !== t && navigator.clipboard && navigator.clipboard.readText) {
+    scTried = t;
+    navigator.clipboard.readText().then(x => { if (Number(localStorage.getItem("scWait") || 0) === t) importClipText(x); }).catch(() => {});   // 失敗(許可なし)のときは、ボタンのまま
+  }
+}
 document.addEventListener("visibilitychange", () => { if (!document.hidden) checkScWait(); });
 window.addEventListener("pageshow", checkScWait);
 $("scTake").onclick = () => {
-  if (!navigator.clipboard || !navigator.clipboard.readText) { showToast("「文字を貼り付けて追加」から貼り付けてください"); return; }
-  navigator.clipboard.readText().then(t => {
-    localStorage.removeItem("scWait"); $("scBanner").hidden = true;
-    if (t.trim()) startFromText(t); else showToast("コピーされた文字がありません");
-  }).catch(() => showToast("貼り付けを許可してください"));
+  if (!navigator.clipboard || !navigator.clipboard.readText) { showToast("読み取った文字をコピーできませんでした"); return; }
+  navigator.clipboard.readText().then(t => { if (!importClipText(t)) showToast("読み取った文字が見つかりません。ショートカットに「クリップボードにコピー」を足してください"); })
+    .catch(() => showToast("貼り付けを許可してください"));
 };
 $("scClose").onclick = () => { localStorage.removeItem("scWait"); $("scBanner").hidden = true; };
 
