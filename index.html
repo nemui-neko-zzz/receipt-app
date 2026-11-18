@@ -72,9 +72,11 @@
   .searchrow input { width:100%; border:1px solid var(--field); border-radius:6px; padding:11px 12px; font-size:16px; outline:none; }
 
   /* 履歴 */
+  .mh { display:flex; justify-content:space-between; align-items:baseline; padding:22px 16px 8px; margin-top:8px; background:var(--bg); border-top:1px solid var(--line); scroll-margin-top:8px; }
+  .mh span { font-size:17px; font-weight:800; } .mh b { font-size:13px; color:var(--sub); font-weight:600; font-variant-numeric:tabular-nums; }
   .day { padding:26px 16px 8px; font-size:14px; font-weight:700; }
   .hrow { display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; }
-  .hrow .ico svg { width:22px; height:22px; display:block; }
+  .hrow .ico svg { width:20px; height:20px; display:block; }
   .hrow .hs { flex:1; font-size:15px; color:var(--sub); min-width:0; }
   .hrow .hg { display:block; font-size:12px; color:var(--light); margin-top:2px; }
   .hrow .ha { font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; }
@@ -95,7 +97,11 @@
   .trhead .head { font-size:15px; }
   .sw { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--sub); padding:12px 0 0 16px; }
   .chartbox { padding:8px 8px 0; }
-  svg.trend { width:100%; height:auto; display:block; touch-action:manipulation; }
+  .trwrap { display:flex; }
+  .trwrap > svg { flex:none; display:block; }
+  .trscroll { flex:1; min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  svg.trend { display:block; max-width:none; touch-action:pan-x pan-y; }
+  .swipehint { font-size:11px; font-weight:400; color:var(--light); margin-left:6px; }
   svg.trend .mslot { cursor:pointer; outline:none; }
   svg.trend .mslot:focus-visible > rect:first-child { stroke:#0b0b0b; stroke-width:1.5; }
   .lgd { display:flex; flex-wrap:wrap; gap:6px 14px; padding:6px 16px 0; font-size:12px; color:#52514e; }
@@ -149,7 +155,10 @@
   .field[type=datetime-local]::-webkit-date-and-time-value { text-align:left; }
   .item { display:grid; grid-template-columns:1fr 96px 28px; gap:8px 8px; align-items:center; margin-bottom:14px; }
   .item .price { text-align:right; }
-  .item select { grid-column:1; justify-self:start; border:1px solid var(--line); background:var(--bg); border-radius:14px; padding:6px 12px; font-size:16px; color:var(--sub); outline:none; }
+  .item .gsel { grid-column:1; display:flex; flex-wrap:wrap; gap:6px; }
+  .item .pm { grid-column:2; justify-self:end; border:1px solid var(--line); background:var(--bg); border-radius:14px; padding:6px 14px; font-size:16px; color:var(--sub); cursor:pointer; }
+  .item .gsel select { border:1.5px solid var(--gc); background:var(--gb); }
+  .item select { border:1px solid var(--line); background:var(--bg); border-radius:14px; padding:6px 12px; font-size:16px; color:var(--sub); outline:none; max-width:100%; }
   /* −と+は文字ではなく線で描く(文字だとフォントによって中心からずれる) */
   .minus { position:relative; width:24px; height:24px; border-radius:50%; border:0; background:#c8c8c8; cursor:pointer; padding:0; }
   .minus::before, .add i::before, .add i::after { content:""; position:absolute; left:50%; top:50%; width:12px; height:2px; background:#fff; border-radius:1px; transform:translate(-50%,-50%); }
@@ -213,7 +222,7 @@
       <label class="lb">品目 / 金額 / ジャンル</label>
       <div id="items"></div>
       <button class="add" id="addItem"><i></i>品目を追加</button>
-      <div class="sumrow"><span>合計</span><input class="field" id="eTotal" type="number" inputmode="numeric"></div>
+      <div class="sumrow"><span>合計</span><input class="field numf" id="eTotal" type="text" inputmode="numeric" autocomplete="off"></div>
       <div class="warn" id="warn" hidden></div>
       <div class="note" id="note"></div>
       <button class="copybtn" id="copyResult">読み取り結果をコピー</button>
@@ -271,6 +280,7 @@ let receipts = load(KEY, null);
 let learned = load(LKEY, {});
 let customCats = load("cats.v1", []);
 let storeMap = Object.fromEntries(load("stores.v1", []).map(x => [x.k, x.n]));   // 電話番号/登録番号 → 確認した店名
+let deleted = load("deleted.v1", {});   // 消したレシートのID → 消した時刻(端末をまたぐ同期で、消したものが復活しないように)
 let updatedAt = Number(localStorage.getItem("receipts.updatedAt") || 0), applyingRemote = false;
 if (!receipts) {
   receipts = [
@@ -283,7 +293,7 @@ if (!receipts) {
 function p2(n){ return String(n).padStart(2,"0"); }   // function宣言にして、サンプル作成(ファイルの上の方)より先に使えるようにする
 function today(offset){ const d=new Date(); d.setDate(d.getDate()+offset); return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); }
 function nowTime(){ const d=new Date(); return p2(d.getHours())+":"+p2(d.getMinutes()); }
-function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(receipts)); localStorage.setItem(LKEY, JSON.stringify(learned)); localStorage.setItem("cats.v1", JSON.stringify(customCats)); localStorage.setItem("receipts.updatedAt", String(updatedAt)); localStorage.setItem("stores.v1", JSON.stringify(Object.entries(storeMap).map(([k,n]) => ({k,n})))); }
+function saveLocal(){ localStorage.setItem(KEY, JSON.stringify(receipts)); localStorage.setItem(LKEY, JSON.stringify(learned)); localStorage.setItem("cats.v1", JSON.stringify(customCats)); localStorage.setItem("deleted.v1", JSON.stringify(deleted)); localStorage.setItem("receipts.updatedAt", String(updatedAt)); localStorage.setItem("stores.v1", JSON.stringify(Object.entries(storeMap).map(([k,n]) => ({k,n})))); }
 // 変更を保存する: 端末に保存 → 更新時刻を進める → ログイン中ならクラウドにも上げる
 function persist(){ if (!applyingRemote) updatedAt = Date.now(); saveLocal(); if (!applyingRemote) pushToCloud(); }
 let toastTimer = null;
@@ -346,10 +356,11 @@ let tab = "hist", month = today(0).slice(0,7);
 function renderList(){
   const months = [...new Set([today(0).slice(0,7), ...receipts.map(r=>r.date.slice(0,7))])].sort().reverse();
   if (!months.includes(month)) month = months[0];
-  $("month").innerHTML = months.map(m=>'<option value="'+m+'"'+(m===month?' selected':'')+'>'+m.slice(0,4)+'年'+Number(m.slice(5))+'月</option>').join("");
+  const monthOpts = months.map(m=>'<option value="'+m+'"'+(m===month?' selected':'')+'>'+m.slice(0,4)+'年'+Number(m.slice(5))+'月</option>').join("");
+  $("month").innerHTML = monthOpts; $("month").parentNode.hidden = tab !== "hist";   // 月の選択: 履歴は上、レポートは「内訳」の中だけ(推移は全期間なので不要)
   $("tabReport").classList.toggle("on", tab==="report"); $("tabHist").classList.toggle("on", tab==="hist");
-  $("view").innerHTML = tab==="hist" ? histHTML() : '<div class="rtabs"><button data-rv="break"' + (rview==="break" ? ' class="on"' : '') + '>内訳</button><button data-rv="trend"' + (rview==="trend" ? ' class="on"' : '') + '>推移</button></div>' + (rview==="trend" ? trendHTML() : reportHTML());
-  if (tab==="report" && rview==="trend") showReadout(selYm || month);
+  $("view").innerHTML = tab==="hist" ? histHTML() : '<div class="rtabs"><button data-rv="break"' + (rview==="break" ? ' class="on"' : '') + '>内訳</button><button data-rv="trend"' + (rview==="trend" ? ' class="on"' : '') + '>推移</button></div>' + (rview==="trend" ? trendHTML() : '<div class="monthbar"><select id="month2">' + monthOpts + '</select></div>' + reportHTML());
+  if (tab==="report" && rview==="trend") { showReadout(selYm || month); const sc = $("trscroll"); if (sc) sc.scrollLeft = trendScroll === null ? sc.scrollWidth : trendScroll; }
 }
 // ---- あなたの買い物の傾向(全期間のレシートから計算) ----
 const man = n => { n = Math.round(n); return n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, "") + "万円" : n.toLocaleString() + "円"; };
@@ -383,13 +394,17 @@ function tendencyHTML(){
 }
 function histHTML(){
   const q = $("q").value.trim();
-  const list = receipts.filter(r => q ? (r.store.includes(q) || r.items.some(i=>i.n.includes(q)||i.c.includes(q)||parentOf(i.c).includes(q))) : r.date.startsWith(month))
+  const list = receipts.filter(r => q ? (r.store.includes(q) || r.items.some(i=>i.n.includes(q)||i.c.includes(q)||parentOf(i.c).includes(q))) : true)
                        .sort((a,b)=> b.date.localeCompare(a.date) || (b.time||"").localeCompare(a.time||"") || b.id-a.id);
   if (!list.length) return '<div class="empty">'+(q?"見つかりませんでした":"まだレシートがありません")+'</div>';
-  let html = "", last = "";
+  const mt = {}; list.forEach(r => { const m = r.date.slice(0, 7); mt[m] = (mt[m] || 0) + Number(r.total || 0); });
+  let html = "", last = "", lastM = "";
   for (const r of list) {
+    const m = r.date.slice(0, 7);
+    if (m !== lastM) { html += '<div class="mh" id="mh-' + m + '"><span>' + ymName(m) + '</span><b>' + yen(mt[m]) + '</b></div>'; lastM = m; last = ""; }
     if (r.date !== last) { html += '<div class="day">'+fmtDay(r.date)+'</div>'; last = r.date; }
-    html += '<div class="hrow" data-id="'+r.id+'"><span class="ico">'+icon(mainCat(r),"#a8a8a8")+'</span><span class="hs">'+esc(r.store)+'<span class="hg">'+esc(recGenres(r))+'</span></span><span class="ha">-'+yen(r.total)+'</span></div>';
+    const mc = mainCat(r);
+    html += '<div class="hrow" data-id="'+r.id+'"><span class="ico dot" style="background:'+catColor(mc)+'">'+icon(mc,"#fff")+'</span><span class="hs">'+esc(r.store)+'<span class="hg">'+esc(recGenres(r))+'</span></span><span class="ha">-'+yen(r.total)+'</span></div>';
   }
   return html;
 }
@@ -411,51 +426,53 @@ let rview = "break", showPrev = localStorage.getItem("showPrev") === "1", selYm 
 // ---- 推移: 12か月の積み上げ棒グラフ(月をタップすると、下に内訳が出る) ----
 const svgEl = (tag, attrs, text) => { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); Object.entries(attrs || {}).forEach(([k, v]) => e.setAttribute(k, v)); if (text !== undefined) e.textContent = text; return e; };
 function niceStep(max){ for (const st of [5000, 10000, 20000, 25000, 50000, 100000, 200000, 250000, 500000, 1000000]) if (max / st <= 5) return st; return 1000000; }   // 目盛りは5本以内。縦軸は「万」単位
+let trendScroll = null;   // 推移グラフの横スクロール位置(null=いちばん新しい月が右端に見える位置)
 function trendHTML(){
-  const cur = today(0).slice(0, 7), months = []; for (let i = 11; i >= 0; i--) months.push(ymAdd(month, -i));
-  if (!months.includes(selYm)) selYm = month;
+  const cur = today(0).slice(0, 7), months = [], fm = firstMonth(), lastData = receipts.reduce((m, r) => r.date.slice(0, 7) > m ? r.date.slice(0, 7) : m, cur);
+  for (let m = (fm && fm < ymAdd(cur, -11)) ? fm : ymAdd(cur, -11); m <= lastData; m = ymAdd(m, 1)) months.push(m);   // 最低12か月。データがあれば最初の月から
+  if (!months.includes(selYm)) selYm = months.includes(month) ? month : cur;
   const stats = months.map(m => monthStat(m)), prevs = months.map(m => baseStat(ymAdd(m, -12)));
   const parents = orderedParents().filter(p => stats.some(st => (st.by[p] || 0) > 0));
   const tot = stats.map(st => parents.reduce((t, p) => t + Math.max(0, st.by[p] || 0), 0));
   const maxV = Math.max(1, ...tot, ...(showPrev ? prevs.map(p => p ? p.total : 0) : [0]));
-  if (!tot.some(v => v > 0)) return '<div class="empty">この12か月のレシートはありません</div>';
+  if (!tot.some(v => v > 0)) return '<div class="empty">レシートがありません</div>';
   const step = niceStep(maxV), ymax = Math.ceil(maxV / step) * step;
-  const W = 360, H = 236, ml = 36, mr = 6, mt = 22, mb = 36, pw = W - ml - mr, ph = H - mt - mb, slot = pw / 12, bw = 18;
+  const slot = 26, bw = 16, H = 236, ml = 36, mr = 6, mt = 22, mb = 36, ph = H - mt - mb, W = months.length * slot + mr;   // 12か月ぶんが画面の幅に入る大きさ。それより古い月は、横にスワイプ
   const Y = v => mt + ph - v / ymax * ph;
-  const svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, class: "trend", role: "img", "aria-label": "月ごとの支出の推移(積み上げ棒グラフ)。数字は、下の表でも見られます" });
-  for (let v = 0; v <= ymax; v += step) {   // 目盛り: 細い実線のグリッド
-    svg.appendChild(svgEl("line", { x1: ml, x2: W - mr, y1: Y(v), y2: Y(v), stroke: "#e1e0d9", "stroke-width": 1 }));
-    svg.appendChild(svgEl("text", { x: ml - 5, y: Y(v) + 3.5, "text-anchor": "end", "font-size": 10, fill: "#52514e" }, v === 0 ? "0" : (v / 10000) + "万"));
+  const ax = svgEl("svg", { viewBox: "0 0 " + ml + " " + H, width: ml, height: H, "aria-hidden": "true" });   // 縦軸は動かさない
+  const svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, class: "trend", role: "img", "aria-label": "月ごとの支出の推移(積み上げ棒グラフ)。数字は、下の表でも見られます" });
+  for (let v = 0; v <= ymax; v += step) {
+    svg.appendChild(svgEl("line", { x1: 0, x2: W, y1: Y(v), y2: Y(v), stroke: "#e1e0d9", "stroke-width": 1 }));
+    ax.appendChild(svgEl("text", { x: ml - 5, y: Y(v) + 3.5, "text-anchor": "end", "font-size": 10, fill: "#52514e" }, v === 0 ? "0" : (v / 10000) + "万"));
   }
-  const maxIdx = tot.indexOf(Math.max(...tot));
+  const lab = v => v >= 10000 ? (v / 10000).toFixed(1).replace(/\.0$/, "") + "万" : (v >= 1000 ? Math.round(v / 1000) + "千" : String(Math.round(v)));
   months.forEach((m, k) => {
-    const x0 = ml + k * slot, bx = x0 + (slot - bw) / 2, g = svgEl("g", { class: "mslot", "data-ym": m, tabindex: 0, role: "button", "aria-label": ymName(m) + " " + yen(stats[k].total) });
+    const x0 = k * slot, bx = x0 + (slot - bw) / 2, g = svgEl("g", { class: "mslot", "data-ym": m, tabindex: 0, role: "button", "aria-label": ymName(m) + " " + yen(stats[k].total) });
     g.appendChild(svgEl("rect", { x: x0 + 1, y: mt - 4, width: slot - 2, height: ph + mb, rx: 6, fill: m === selYm ? "#f2f1ee" : "none", class: "hl" }));   // 選んでいる月の背景
-    let acc = 0; const segs = parents.map(p => ({ p, v: Math.max(0, stats[k].by[p] || 0) })).filter(x => x.v / ymax * ph >= 1.2);   // 1px未満の細すぎる段は描かない(縞のノイズになるため)
+    let acc = 0; const segs = parents.map(p => ({ p, v: Math.max(0, stats[k].by[p] || 0) })).filter(x => x.v / ymax * ph >= 1.2);
     segs.forEach((sg, j) => {
       const top = Y(acc + sg.v), bot = Y(acc), isTop = j === segs.length - 1, isBot = j === 0;
       const y = top + (isTop ? 0 : 1), h = Math.max(1, bot - top - (isTop ? 0 : 1) - (isBot ? 0 : 1)), r = Math.min(4, h / 2, bw / 2), col = catColor(sg.p);
       const op = m === cur ? 0.55 : 1;   // 今月は途中なので、うすく
       if (isTop) g.appendChild(svgEl("path", { d: "M" + bx + " " + (y + h) + "V" + (y + r) + "Q" + bx + " " + y + " " + (bx + r) + " " + y + "H" + (bx + bw - r) + "Q" + (bx + bw) + " " + y + " " + (bx + bw) + " " + (y + r) + "V" + (y + h) + "Z", fill: col, opacity: op }));
-      else g.appendChild(svgEl("rect", { x: bx, y, width: bw, height: h, fill: col, opacity: op }));   // 角は、いちばん上の段だけ丸める
+      else g.appendChild(svgEl("rect", { x: bx, y, width: bw, height: h, fill: col, opacity: op }));
       acc += sg.v;
     });
-    if (showPrev && prevs[k]) g.appendChild(svgEl("line", { x1: bx - 3, x2: bx + bw + 3, y1: Y(Math.max(0, prevs[k].total)), y2: Y(Math.max(0, prevs[k].total)), stroke: "#0b0b0b", "stroke-width": 2, "stroke-linecap": "round" }));   // 前年の同じ月: 短い横線の目印
+    if (showPrev && prevs[k]) g.appendChild(svgEl("line", { x1: bx - 3, x2: bx + bw + 3, y1: Y(Math.max(0, prevs[k].total)), y2: Y(Math.max(0, prevs[k].total)), stroke: "#0b0b0b", "stroke-width": 2, "stroke-linecap": "round" }));
     g.appendChild(svgEl("text", { x: x0 + slot / 2, y: H - mb + 14, "text-anchor": "middle", "font-size": 10, fill: "#52514e" }, String(Number(m.slice(5)))));
-    const showYear = m.slice(5) === "01" || (k === 0 && months[1].slice(5) !== "01");
+    const showYear = m.slice(5) === "01" || k === 0;
     if (showYear) g.appendChild(svgEl("text", { x: x0 + slot / 2, y: H - mb + 27, "text-anchor": "middle", "font-size": 10, fill: "#8b8a85" }, m.slice(0, 4)));
-    else if (m === cur) g.appendChild(svgEl("text", { x: x0 + slot / 2, y: H - mb + 27, "text-anchor": "middle", "font-size": 10, fill: "#8b8a85" }, "途中"));   // 今月は、横軸の下に「途中」
-    const label = (k === months.length - 1) || (k === maxIdx && Math.abs(k - (months.length - 1)) > 2);   // 数字は、最後の月と、いちばん多い月だけ
-    if (label && tot[k] > 0) g.appendChild(svgEl("text", { x: k === months.length - 1 ? W - mr : x0 + slot / 2, y: Y(tot[k]) - 5, "text-anchor": k === months.length - 1 ? "end" : "middle", "font-size": 10, "font-weight": 700, fill: "#0b0b0b" }, (tot[k] / 10000).toFixed(1).replace(/\.0$/, "") + "万"));
-    g.appendChild(svgEl("rect", { x: x0, y: mt - 4, width: slot, height: ph + mb + 4, fill: "transparent" }));   // タップできる範囲は、棒より広く
+    else if (m === cur) g.appendChild(svgEl("text", { x: x0 + slot / 2, y: H - mb + 27, "text-anchor": "middle", "font-size": 10, fill: "#8b8a85" }, "途中"));
+    if (tot[k] > 0) g.appendChild(svgEl("text", { x: x0 + slot / 2, y: Y(tot[k]) - 4, "text-anchor": "middle", "font-size": 9, "font-weight": 700, fill: "#0b0b0b" }, lab(tot[k])));   // 数字は、すべての月に出す
+    g.appendChild(svgEl("rect", { x: x0, y: mt - 4, width: slot, height: ph + mb + 4, fill: "transparent" }));
     svg.appendChild(g);
   });
-  const holder = document.createElement("div"); holder.appendChild(svg);
+  const holder = document.createElement("div"); holder.appendChild(ax); const sc = document.createElement("div"); sc.className = "trscroll"; sc.id = "trscroll"; sc.appendChild(svg); holder.appendChild(sc);
   const legend = '<div class="lgd">' + parents.map(p => '<span><i style="background:' + catColor(p) + '"></i>' + esc(p) + '</span>').join("") + (showPrev ? '<span><i class="ol"></i>前年の同じ月</span>' : "") + '</div>';
-  const rows = stats.map((st, k) => '<tr><th>' + esc(ymName(months[k])) + (months[k] === cur ? '(途中)' : '') + '</th><td>' + yen(st.total) + '</td>' + parents.map(p => '<td>' + (st.by[p] ? yen(st.by[p]) : "") + '</td>').join("") + '</tr>').join("");
+  const rows = stats.map((st, k) => '<tr><th>' + esc(ymName(months[k])) + (months[k] === cur ? '(途中)' : '') + '</th><td>' + yen(st.total) + '</td>' + parents.map(p => '<td>' + (st.by[p] ? yen(st.by[p]) : "") + '</td>').join("") + '</tr>').reverse().join("");
   const table = '<details class="tbl"><summary>数字を表で見る</summary><div class="tblw"><table><thead><tr><th>月</th><th>合計</th>' + parents.map(p => '<th>' + esc(p) + '</th>').join("") + '</tr></thead><tbody>' + rows + '</tbody></table></div></details>';
-  return '<div class="trhead"><div class="head" style="padding-top:12px">' + ymName(months[0]) + '〜' + ymName(months[11]) + '</div><label class="sw"><input type="checkbox" id="prevToggle"' + (showPrev ? " checked" : "") + '>前年の同じ月を重ねる</label></div>'
-    + '<div class="chartbox">' + holder.innerHTML + '</div>' + legend + '<div class="readout" id="readout"></div>' + table;
+  return '<div class="trhead"><div class="head" style="padding-top:12px">' + ymName(months[0]) + '〜' + ymName(months[months.length - 1]) + '<span class="swipehint">(横にスワイプ)</span></div><label class="sw"><input type="checkbox" id="prevToggle"' + (showPrev ? " checked" : "") + '>前年の同じ月を重ねる</label></div>'
+    + '<div class="chartbox trwrap">' + holder.innerHTML + '</div>' + legend + '<div class="readout" id="readout"></div>' + table;
 }
 function showReadout(ym){
   const box = $("readout"); if (!box) return; selYm = ym;
@@ -491,18 +508,20 @@ function reportHTML(){
 }
 $("tabReport").onclick = () => { tab="report"; renderList(); };
 $("tabHist").onclick = () => { tab="hist"; renderList(); };
-$("month").onchange = e => { month = e.target.value; renderList(); };
+$("month").onchange = e => { month = e.target.value; renderList(); if (tab === "hist") { const h = $("mh-" + month); if (h) h.scrollIntoView(); else window.scrollTo(0, 0); } };   // 履歴は全期間が続いているので、選んだ月の位置へ移動
 $("searchBtn").onclick = () => { const r=$("searchRow"); r.hidden = !r.hidden; if (!r.hidden) { tab="hist"; $("q").focus(); } else { $("q").value=""; } renderList(); };
 $("q").addEventListener("input", renderList);
 $("view").addEventListener("click", e => {
   const row = e.target.closest(".hrow"); if (row) { openDetail(receipts.find(r=>r.id==row.dataset.id)); return; }
-  const rv = e.target.closest("[data-rv]"); if (rv) { rview = rv.dataset.rv; renderList(); return; }
+  const rv = e.target.closest("[data-rv]"); if (rv) { rview = rv.dataset.rv; if (rview === "trend") selYm = month; renderList(); return; }
   if (e.target.id === "goMonth") { month = selYm; rview = "break"; renderList(); return; }
-  const g = e.target.closest(".mslot"); if (g) { selYm = g.dataset.ym; renderList(); }
+  const g = e.target.closest(".mslot"); if (g) showReadout(g.dataset.ym);   // 再描画しない(スクロール位置を保つ)
 });
+$("view").addEventListener("scroll", e => { if (e.target.id === "trscroll") trendScroll = e.target.scrollLeft; }, true);
+$("view").addEventListener("change", e => { if (e.target.id === "month2") { month = e.target.value; renderList(); } });
 $("view").addEventListener("change", e => { if (e.target.id === "prevToggle") { showPrev = e.target.checked; localStorage.setItem("showPrev", showPrev ? "1" : "0"); renderList(); } });
 $("view").addEventListener("pointerover", e => { const g = e.target.closest(".mslot"); if (g && e.pointerType === "mouse" && g.dataset.ym !== selYm) { selYm = g.dataset.ym; showReadout(selYm); } });
-$("view").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { const g = e.target.closest && e.target.closest(".mslot"); if (g) { e.preventDefault(); selYm = g.dataset.ym; renderList(); } } });
+$("view").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { const g = e.target.closest && e.target.closest(".mslot"); if (g) { e.preventDefault(); showReadout(g.dataset.ym); } } });
 
 // ---- 詳細 ----
 let detailRec = null;
@@ -511,7 +530,7 @@ function openDetail(r){
   if ($("list").classList.contains("on")) listScroll = window.scrollY;
   $("dCard").innerHTML =
     '<div class="hd"><div class="st">'+esc(r.store)+'</div><div class="dt">'+r.date.replace(/-/g,".")+(r.time?" "+r.time:"")+'</div></div>'+
-    '<div class="its">'+r.items.map(i=>'<div class="it"><span>'+esc(i.n||"(品目名なし)")+'<em class="ig">'+esc(i.c)+'</em></span><b>'+yen(i.p)+'</b></div>').join("")+'</div>'+
+    '<div class="its">'+r.items.map(i=>'<div class="it"><span>'+esc(i.n||"(品目名なし)")+'<em class="ig" style="background:'+catColor(i.c)+'26">'+esc(i.c)+'</em></span><b>'+yen(i.p)+'</b></div>').join("")+'</div>'+
     '<div class="tt"><span>合計</span><b>'+yen(r.total)+'</b></div>'+
     '<div class="btns"><button class="btn" id="dDel">削除</button><button class="btn" id="dEdit">編集</button></div>';
   $("dDel").onclick = () => removeReceipt(r.id);
@@ -519,7 +538,7 @@ function openDetail(r){
   show("detail");
 }
 $("dClose").onclick = backToList;
-function removeReceipt(id){ if (confirm("このレシートを削除しますか?")) { receipts = receipts.filter(r=>r.id!==id); persist(); renderList(); backToList(); } }
+function removeReceipt(id){ if (confirm("このレシートを削除しますか?")) { deleted[id] = Date.now(); receipts = receipts.filter(r=>r.id!==id); persist(); renderList(); backToList(); } }
 
 // ---- 確認・編集 ----
 let cur = null;
@@ -533,23 +552,31 @@ function openEdit(r, img){
 }
 function renderItems(){
   const groups = genreGroups(), known = new Set(allGenres());
-  const opts = it => groups.map(g => g.kids.length
-    ? '<optgroup label="' + esc(g.parent) + '">' + g.kids.map(k => '<option' + (k === it.c ? ' selected' : '') + '>' + esc(k) + '</option>').join("") + '</optgroup>'
-    : '<option' + (g.parent === it.c ? ' selected' : '') + '>' + esc(g.parent) + '</option>').join("")
+  // 1つ目で大項目を選び、小項目がある大項目だけ、2つ目の選択肢が出る
+  const parentSel = it => known.has(it.c) ? parentOf(it.c) : it.c;
+  const opts1 = it => groups.map(g => '<option' + (g.parent === parentSel(it) ? ' selected' : '') + '>' + esc(g.parent) + '</option>').join("")
     + (known.has(it.c) ? "" : '<option selected>' + esc(it.c) + '</option>') + '<option value="__new">＋ 新しく追加</option>';
+  const gcol = it => { const c = catColor(it.c); return "--gc:" + c + ";--gb:" + c + "26"; };   // 内訳と同じ色
+  const kidsOf = it => { const g = groups.find(g => g.parent === parentSel(it)); return g ? g.kids : []; };
+  const sub = (it, i) => { const ks = kidsOf(it); return ks.length ? '<select data-i="'+i+'" data-f="sub">' + ks.map(k => '<option' + (k === it.c ? ' selected' : '') + '>' + esc(k) + '</option>').join("") + '</select>' : ""; };
   $("items").innerHTML = cur.items.map((it,i)=>
     '<div class="item"><input class="field" data-i="'+i+'" data-f="n" placeholder="品目" value="'+esc(it.n)+'">'+
-    '<input class="field price" data-i="'+i+'" data-f="p" type="number" inputmode="numeric" value="'+it.p+'">'+
+    '<input class="field price numf" data-i="'+i+'" data-f="p" type="text" inputmode="numeric" autocomplete="off" value="'+it.p+'">'+
     '<button class="minus" data-del="'+i+'" aria-label="この品目を消す"></button>'+
-    '<select data-i="'+i+'" data-f="c">'+opts(it)+'</select></div>').join("");
+    '<div class="gsel" style="'+gcol(it)+'"><select data-i="'+i+'" data-f="c">'+opts1(it)+'</select>'+sub(it, i)+'</div>'+
+    '<button class="pm" data-neg="'+i+'" aria-label="プラスとマイナスを切り替える">±</button></div>').join("");
   checkTotal();
 }
 function checkTotal(){
   const sum = cur.items.reduce((s,i)=>s+Number(i.p||0),0), total = Number($("eTotal").value||0);
   $("warn").hidden = sum === total;
-  $("warn").textContent = "明細の合計("+yen(sum)+")と、合計金額("+yen(total)+")が合っていません。";
+  const d = total - sum;
+  $("warn").textContent = "明細の合計("+yen(sum)+")と、合計金額("+yen(total)+")が合っていません。差額: " + yen(Math.abs(d)) + "(" + (d > 0 ? "明細があと" + yen(d) + "足りません" : "明細が" + yen(-d) + "多いです") + ")";
 }
-$("eTotal").addEventListener("input", checkTotal);
+// 数字欄: 先頭の0は消す(0の欄に「123」と入れても「0123」にならない)。タップしたとき0なら、全部選んで上書きできるようにする
+const cleanNum = v => { v = v.replace(/[^\d-]/g, ""); v = (v.startsWith("-") ? "-" : "") + v.replace(/-/g, ""); return v.replace(/^(-?)0+(?=\d)/, "$1"); };
+document.addEventListener("focusin", e => { const t = e.target; if (t.classList && t.classList.contains("numf") && t.value === "0") setTimeout(() => t.select(), 0); });
+$("eTotal").addEventListener("input", e => { const v = cleanNum(e.target.value.replace(/-/g, "")); if (v !== e.target.value) e.target.value = v; checkTotal(); });
 $("items").addEventListener("input", e => {
   const t = e.target, i = t.dataset.i; if (i===undefined) return;
   if (t.value === "__new") {
@@ -558,11 +585,20 @@ $("items").addEventListener("input", e => {
     if (name) { cur.items[i].c = name; learned[cur.items[i].n] = name; persist(); }
     renderItems(); return;
   }
-  cur.items[i][t.dataset.f] = t.dataset.f==="p" ? Number(t.value) : t.value;
-  if (t.dataset.f==="c") { learned[cur.items[i].n] = t.value; delete cur.items[i].a; }  // 直したジャンルを覚える。自動の印も外す
+  if (t.dataset.f === "c" || t.dataset.f === "sub") {
+    // 大項目を変えたら、小項目がある大項目は先頭の小項目にして、2つ目の選択肢を出し直す
+    let g = t.value;
+    if (t.dataset.f === "c") { const grp = genreGroups().find(x => x.parent === t.value); if (grp && grp.kids.length) g = grp.kids[0]; }
+    cur.items[i].c = g; learned[cur.items[i].n] = g; delete cur.items[i].a;   // 直したジャンルを覚える。自動の印も外す
+    renderItems(); return;
+  }
+  if (t.dataset.f === "p") { const v = cleanNum(t.value); if (v !== t.value) t.value = v; cur.items[i].p = Number(v) || 0; checkTotal(); return; }
+  cur.items[i][t.dataset.f] = t.value;
   if (t.dataset.f==="p") checkTotal();
 });
 $("items").addEventListener("click", e => {
+  const ng = e.target.dataset.neg;
+  if (ng !== undefined) { cur.items[ng].p = -Number(cur.items[ng].p || 0); const f = $("items").querySelector('input[data-f="p"][data-i="' + ng + '"]'); if (f) f.value = cur.items[ng].p; checkTotal(); return; }   // ±: 値引きなどマイナスの金額にする
   const d = e.target.dataset.del; if (d===undefined) return;
   const it = cur.items[d];
   // 中身のある品目は、確認してから消す(空の行はそのまま消す)
@@ -573,7 +609,7 @@ $("addItem").onclick = () => { cur.items.push({n:"",p:0,c:"その他"}); renderI
 $("cancel").onclick = () => { if (cur && cur.id !== null) show("detail"); else backToList(); };
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
 $("save").onclick = () => {
-  cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0);
+  cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0); cur.mt = Date.now();
   cur.items.forEach(i => { delete i.a; }); delete cur.raw; delete cur.init; delete cur.address;   // 読み取りの全文・比較用のデータ・住所は、レシートには残さない
   if (cur.store !== "(店名なし)") [cur.phone, cur.reg].filter(Boolean).forEach(k => { storeMap[k] = cur.store; });   // 次から同じ店は自動で入る
   if (cur.id === null) { cur.id = Date.now(); receipts.push(cur); }
@@ -587,7 +623,7 @@ renderList();
 function parseReceiptText(raw, knownStores) {
   const text = String(raw || "")
     .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    .replace(/￥/g, "¥").replace(/，/g, ",").replace(/：/g, ":").replace(/／/g, "/").replace(/[・·]/g, "").replace(/言十/g, "計");   // 「計」が「言十」と読まれることがある
+    .replace(/￥/g, "¥").replace(/，/g, ",").replace(/：/g, ":").replace(/／/g, "/").replace(/[・·]/g, "").replace(/言[十士]/g, "計");   // 「計」が「言十」と読まれることがある
   const nf = text.replace(/\s+/g, "");
   const lines = [];   // 1文字ずつ改行された語(「合」「計」、「領」「収」)は、つなげる
   let joinable = false;
@@ -619,9 +655,10 @@ function parseReceiptText(raw, knownStores) {
     const rest = lines[i].slice(from).replace(/^[\s:：]+/, "");
     let m = rest && AMT.exec(rest);
     if (m) return num(m[1]);
+    const RATE = /^\d+(?:\.\d+)?\s*[%％]\s*¥?\s*(\d{1,3}(?:,\s?\d{3})+|\d{1,7})$/;   // 「10.0% 2,060」(税率と金額が同じ行)
     for (let j = i + 1; j <= i + win && j < lines.length; j++) {
       if (stop && stop.test(lines[j])) break;
-      if ((m = AMT.exec(lines[j]))) return num(m[1]);
+      if ((m = AMT.exec(lines[j]) || RATE.exec(lines[j]))) return num(m[1]);
     }
     return null;
   };
@@ -638,7 +675,12 @@ function parseReceiptText(raw, knownStores) {
       for (let i = 0; i < lines.length && total === null; i++) { const mm = re.exec(lines[i]); if (mm) total = valueAfter(i, mm.index + mm[0].length, win, STOP); }
       if (total !== null) break;
     }
-    if (total === null) { const all = lines.flatMap(l => [...l.matchAll(/¥\s*(\d{1,3}(?:,\d{3})+|\d+)/g)].map(x => num(x[1]))); if (all.length) total = Math.max(...all); }
+    if (total === null) {   // 金額だけの行で3回以上出てくる金額(小計・料金・現金…が同じ)があれば、それが合計。なければ¥金額の最大値
+      const cnt = {}; lines.forEach(l => { const a = AMT.exec(l); if (a) { const v = num(a[1]); cnt[v] = (cnt[v] || 0) + 1; } });
+      const rep3 = Object.keys(cnt).map(Number).filter(v => cnt[v] >= 3 && v >= 10).sort((a, b) => cnt[b] - cnt[a] || b - a)[0];
+      if (rep3 !== undefined) total = rep3;
+      else { const all = lines.flatMap(l => [...l.matchAll(/¥\s*(\d{1,3}(?:,\d{3})+|\d+)/g)].map(x => num(x[1]))); if (all.length) total = Math.max(...all); }
+    }
   } else {
     const nt = nf.replace(/税合計/g, "税額");
     if ((m = /(?:合計|現計|お会計|総計)[^\d¥]{0,3}¥?(\d[\d,]*)/.exec(nt))) total = num(m[1]);
@@ -682,7 +724,7 @@ function parseReceiptText(raw, knownStores) {
   if (hasLines) {
     const totalIdx = lines.findIndex(l => /合計|小計|台計|現計|お買上|ご請求|お支払|内税|外税|対象額|対象計|消費税|税込/.test(l));
     const end = totalIdx >= 0 ? totalIdx : lines.length;
-    const HEADER = /登録番号|TEL|電話|\d{4}[\/年.\-]\d{1,2}[\/月.\-]\d{1,2}|\d{1,2}:\d{2}|領収|納品書|レシート|レジ|会員|カード|X{4,}|\*{4,}|^No\.?\s*\d+/;
+    const HEADER = /登録番号|TEL|電話|0\d{1,4}-\d{1,4}-\d{3,4}|\d{4}[\/年.\-]\d{1,2}[\/月.\-]\d{1,2}|\d{1,2}:\d{2}|領収|納品書|レシート|レジ|会員|カード|X{4,}|\*{4,}|^No\.?\s*\d+/;
     let start = 0;
     lines.slice(0, end).forEach((l, i) => { if (HEADER.test(l)) start = i + 1; });
     const NOISE = /値引|割引|クーポン|承認|番号|区分|支払|一括|会員|カード|ビザ|マスター|APL|AID|CREDIT|伝票|売上|日時|クレジット|ご利用|ありがとう|税|対象|明細|通り|軽減|レジ|責|領収|納品|登録|様|係員|端末|通番|有効期限|訂正|取消|取り消し|返品|数量|単価|VISA|Visa|JCB|AMEX/;   // レシートの定型文は、商品名にしない
@@ -724,11 +766,11 @@ function parseReceiptText(raw, knownStores) {
     else {   // 順番に見て、「同じ行の組」と「商品名の次の行の金額」を、どちらも拾う。商品名の後に金額が2つ続くとき(単価と金額)は、大きい方
       let pending = null, last = null;
       seq.forEach(x => {
-        if (x.cancel !== undefined) { const j = items.map(t => t.p).lastIndexOf(x.cancel); if (j >= 0) items.splice(j, 1); pending = null; last = null; }
+        if (x.cancel !== undefined) { items.push({ n: "訂正", p: -x.cancel }); pending = null; last = null; }   // 取り消した品目はそのまま残し、「訂正 -390」をマイナスの品目にする(合計は変わらない)
         else if (x.both) { items.push(x.both); pending = null; last = null; }
         else if (x.n !== undefined) { pending = x.n; last = null; }
         else if (pending !== null) { last = { n: pending, p: x.p }; items.push(last); pending = null; }
-        else if (last) last.p = Math.max(last.p, x.p);
+        else if (last) { if (x.p !== items.reduce((a, t) => a + t.p, 0)) last.p = Math.max(last.p, x.p); }   // それまでの品目の合計と同じ金額は小計なので、使わない
       });
     }
     items.forEach(it => { it.n = it.n.replace(/^\d{3,}\s*(?=\D)/, ""); });   // 「0002普通車」→「普通車」(先頭の数字は商品コード)
@@ -742,6 +784,11 @@ function parseReceiptText(raw, knownStores) {
         if (m) items.push({ n: lines[i].replace(neg, "").replace(/^[（(]/, "").replace(/\d+円?\s*$/, "").replace(/[）)]\s*$/, "").trim() || "値引き", p: -num(m[1]) });
       }
     }
+    // 品目の合計が合計より大きく、その差と同じマイナスの金額の行(「-69」)が単独であれば、値引きにする
+    const over = items.reduce((a, i) => a + i.p, 0) - (total === null ? 0 : total);
+    if (items.length && total !== null && over > 0 && !items.some(i => i.p < 0) && lines.some(l => { const d = /^[-−▲△]\s*¥?\s*(\d[\d,]*)$/.exec(l); return d && num(d[1]) === over; })) items.push({ n: "値引き", p: -over });
+    // 品目が1つも取れないとき: 「…車」「料金」の行があれば、合計を金額にして1行にする(料金所の領収書)
+    if (!items.length && total !== null) { const nm = body.find(l => /車|料金|通行/.test(l) && /[ぁ-んァ-ン一-龥]{2,}/.test(l)); if (nm) items.push({ n: nm.replace(/^\d{3,}\s*/, "").replace(/^音通車/, "普通車"), p: total }); }
     // 合計が品目の合計より大きく、その差が「税額」の行の金額(か、2つの合計)と同じなら、「消費税」の品目を足す(外税のレシート)
     const isum = items.reduce((a, i) => a + i.p, 0);
     if (items.length && total !== null && isum !== total) {
@@ -797,8 +844,8 @@ function startFromText(text){
   const big = items.filter(i => i.p > 0 && i.n !== "消費税").sort((x, y) => y.p - x.p)[0];
   items.forEach((i, k) => { if (i.p < 0 && k > 0) i.c = items[k-1].c; else if (i.n === "消費税" && big) i.c = big.c; });   // 値引きは直前の品目、消費税は一番高い品目のジャンル
   const first = { store, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items:items.map(i => ({ n:i.n, p:i.p, c:i.c })) };   // アプリが最初に反映した結果(あとで直したかの比較用)
-  openEdit({ id:null, store, phone:r.phone, reg:r.reg, address:r.address, date:first.date, time:first.time, total:first.total, items, raw:text, init:first }, null);
-  $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "");
+  openEdit({ id:null, store: mine, phone:r.phone, reg:r.reg, address:r.address, date:first.date, time:first.time, total:first.total, items, raw:text, init:first }, null);
+  $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "(店名は下の候補から選んでください)");
   if (!mine) suggestStores({ address:r.address, phone:r.phone, store:r.store });
 }
 
@@ -808,12 +855,17 @@ const PLACES_MONTHLY_LIMIT = 1500;   // 端末ごとの月の上限(レシート
 async function suggestStores(info){
   const box = $("storeCands"), my = ++candToken, key = localStorage.getItem("placesKey");
   const queries = [info.address, info.phone, info.store].filter(Boolean);
-  if (!key || !queries.length) { box.hidden = true; return; }
+  const read = info.store ? '<button class="cand" data-name="' + esc(info.store) + '"><b>' + esc(info.store) + "</b><span>レシートの文字から読み取った名前</span></button>" : "";
+  const manual = '<button class="cand manual" data-manual="1">候補にない(自分で入力)</button>';
+  if (!key || !queries.length) {
+    box.hidden = !(read || !key); if (box.hidden) return;
+    box.innerHTML = '<div class="candnote">' + (key ? "店名の候補" : "Google Mapsの候補を使うには、キーの設定が必要です(このブラウザは未設定)") + "</div>" + read + manual; return;
+  }
   // この端末で1か月に使う検索の回数に上限をつける(Googleの無料枠は月5,000回。料金が出ないように、その手前で自分で止める)
   const ck = "placesCount." + today(0).slice(0,7), used = Number(localStorage.getItem(ck) || 0);
   if (used + queries.length > PLACES_MONTHLY_LIMIT) {
     box.hidden = false;
-    box.innerHTML = '<div class="candnote">今月の店名検索の上限(' + PLACES_MONTHLY_LIMIT + '回)に達したので、店名は手入力してください。</div><button class="cand manual" data-manual="1">自分で入力</button>';
+    box.innerHTML = '<div class="candnote">今月の店名検索の上限(' + PLACES_MONTHLY_LIMIT + '回)に達したので、店名は下から選ぶか手入力してください。</div>' + read + manual;
     return;
   }
   localStorage.setItem(ck, String(used + queries.length));   // 失敗しても数える(多めに数える方が安全)
@@ -833,8 +885,7 @@ async function suggestStores(info){
   });
   const failed = results.every(x => x.status === "rejected");
   box.innerHTML = '<div class="candnote">' + (top.length ? "店名の候補(タップで入力)" : failed ? "候補を取得できませんでした(キーの設定を確認してください)" : "候補が見つかりませんでした") + "</div>" +
-    top.map(c => '<button class="cand" data-name="' + esc(c.name) + '"><b>' + esc(c.name) + "</b><span>" + esc(c.addr) + "</span></button>").join("") +
-    '<button class="cand manual" data-manual="1">候補にない(自分で入力)</button>';
+    top.map(c => '<button class="cand" data-name="' + esc(c.name) + '"><b>' + esc(c.name) + "</b><span>" + esc(c.addr) + "</span></button>").join("") + read + manual;
 }
 $("storeCands").addEventListener("click", e => {
   const b = e.target.closest(".cand"); if (!b) return;
@@ -930,6 +981,7 @@ function applyBackup(d){
     if (!add.length) { showToast("すべて取り込み済みです"); return; }
     const msg = old.length ? d.replaceSrc + "から取り込み済みの" + old.length + "枚を、新しい" + add.length + "枚に置き換えますか?\n(取り込み後に手で直した内容は消えます。ほかのレシートは消えません)" : add.length + "枚のレシートを追加しますか?(今の記録は消えません)";
     if (!confirm(msg)) return;
+    old.forEach(r => { deleted[r.id] = Date.now(); });
     receipts = keep.concat(add);
     (d.customCats || []).forEach(c => { if (!customCats.includes(c)) customCats.push(c); });
     (d.stores || []).forEach(x => { if (!storeMap[x.k]) storeMap[x.k] = x.n; });
@@ -938,6 +990,7 @@ function applyBackup(d){
     return;
   }
   if (!confirm("今の記録(" + receipts.length + "件)を、バックアップの内容(" + d.receipts.length + "件)に置き換えますか?")) return;
+  receipts.forEach(r => { deleted[r.id] = Date.now(); }); d.receipts.forEach(r => { delete deleted[r.id]; });
   receipts = d.receipts; customCats = d.customCats || [];
   storeMap = Object.fromEntries((d.stores || []).map(x => [x.k, x.n]));
   learned = Object.fromEntries((d.learned || []).map(x => [x.n, x.c]));
@@ -966,7 +1019,7 @@ function dataDoc(){ return fbDb.collection("users").doc(fbUser.uid).collection("
 // Firestoreは空のキーを持てないので、learned は配列にして送る
 function cloudData(){
   return JSON.parse(JSON.stringify({
-    receipts, customCats, updatedAt,
+    receipts, customCats, updatedAt, deleted,
     stores: Object.entries(storeMap).map(([k,n]) => ({k,n})),
     learned: Object.entries(learned).filter(([n])=>n).map(([n,c])=>({n,c})),
   }));
@@ -979,16 +1032,40 @@ function onAuthChanged(user){
   if (user) startSync();
 }
 
+// 端末の記録とクラウドの記録を「まとめる」(どちらも消さない)。
+//   同じIDは、あとで直した方(mt が新しい方)を採用。消した記録(deleted)は、消したあとに直されていなければ消す。
+//   別の端末で同じレシートを別々に保存してIDが違うものは、日付・時刻・合計・店名が同じなら重複とみなして1つにする
+function mergeData(r){
+  const del = { ...(r.deleted || {}) }; Object.entries(deleted).forEach(([id, t]) => { del[id] = Math.max(del[id] || 0, t); });
+  const remoteNewer = (r.updatedAt || 0) >= updatedAt, byId = new Map(), side = new Map();
+  const put = (rec, from) => { const old = byId.get(rec.id); if (!old || (rec.mt || 0) > (old.mt || 0) || ((rec.mt || 0) === (old.mt || 0) && from === (remoteNewer ? "r" : "l"))) byId.set(rec.id, rec); side.set(rec.id, (side.get(rec.id) || "") + from); };
+  (r.receipts || []).forEach(x => put(x, "r")); receipts.forEach(x => put(x, "l"));
+  const out = [], seen = new Map();
+  [...byId.values()].sort((a, b) => (b.mt || 0) - (a.mt || 0) || a.id - b.id).forEach(x => {
+    if (del[x.id] && del[x.id] >= (x.mt || 0)) return;
+    const key = (x.time && x.src !== "zaim") ? [x.date, x.time, x.total, x.store].join("|") : "";
+    const dup = key && seen.get(key);
+    if (dup && side.get(dup.id) !== side.get(x.id)) { del[x.id] = Date.now(); return; }   // 片方の端末にしかない重複は、消す(消した印も付ける)
+    if (key) seen.set(key, x);
+    out.push(x);
+  });
+  const cut = Date.now() - 180 * 86400000; Object.keys(del).forEach(k => { if (del[k] < cut) delete del[k]; });
+  const cats = [...(r.customCats || [])]; customCats.forEach(c => { if (!cats.includes(c)) cats.push(c); });
+  const st = Object.fromEntries((r.stores || []).map(x => [x.k, x.n])), le = Object.fromEntries((r.learned || []).map(x => [x.n, x.c]));
+  return { receipts: out, deleted: del, customCats: cats, storeMap: { ...st, ...storeMap }, learned: { ...le, ...learned } };
+}
+const syncSig = (rs, del) => rs.map(x => x.id + ":" + (x.mt || 0)).sort().join(",") + "|" + Object.keys(del || {}).sort().join(",");
+
 function startSync(){
   dataDoc().get().then(snap => {
     const remote = snap.exists ? snap.data() : null;
-    const remoteAt = remote ? (remote.updatedAt || 0) : -1;
-    if (remote && remoteAt >= updatedAt) applyRemote(remote);
-    else if (updatedAt > 0) pushToCloud();   // ローカルが新しい/クラウドが空 → 上げる(一度も編集していないサンプルは上げない)
+    if (!remote) { if (updatedAt > 0) pushToCloud(); }   // クラウドが空 → 上げる(一度も編集していないサンプルは上げない)
+    else if (updatedAt === 0) applyRemote(remote);        // この端末は何も保存していない → クラウドをそのまま使う
+    else mergeRemote(remote);                              // 両方に記録がある → まとめる
     fbUnsub = dataDoc().onSnapshot(s => {
       if (!s.exists) return;
       const r = s.data();
-      if ((r.updatedAt || 0) > updatedAt) applyRemote(r);
+      if ((r.updatedAt || 0) > updatedAt) mergeRemote(r);
     });
   }).catch(e => { console.warn(e); showToast("同期の読み込みに失敗"); });
 }
@@ -997,12 +1074,26 @@ function applyRemote(r){
   applyingRemote = true;
   receipts = r.receipts || [];
   customCats = r.customCats || [];
+  deleted = r.deleted || {};
   storeMap = Object.fromEntries((r.stores || []).map(x => [x.k, x.n]));
   learned = Object.fromEntries((r.learned || []).map(x => [x.n, x.c]));
   updatedAt = r.updatedAt || Date.now();
   migrateGenres(); saveLocal(); renderList();
   applyingRemote = false;
   showToast("同期で最新になりました");
+}
+
+function mergeRemote(r){
+  const before = receipts.length, localSig = syncSig(receipts, deleted), m = mergeData(r);
+  applyingRemote = true;
+  receipts = m.receipts; deleted = m.deleted; customCats = m.customCats; storeMap = m.storeMap; learned = m.learned;
+  updatedAt = Math.max(updatedAt, r.updatedAt || 0);
+  migrateGenres(); saveLocal(); renderList();
+  applyingRemote = false;
+  const needPush = syncSig(receipts, deleted) !== syncSig(r.receipts || [], r.deleted);   // クラウドに無い記録があれば、まとめた結果を上げる
+  const changed = syncSig(receipts, deleted) !== localSig;
+  if (needPush) persist();
+  if (changed) showToast("同期でまとめました(" + before + "件 → " + receipts.length + "件)");
 }
 
 function pushToCloud(){
