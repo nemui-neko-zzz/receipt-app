@@ -54,6 +54,7 @@
   .cand { display:block; width:100%; text-align:left; background:#fff; border:0; border-top:1px solid var(--line); padding:11px 12px; font-size:14px; color:var(--text); cursor:pointer; }
   .cand b { display:block; font-weight:700; }
   .cand span { display:block; font-size:12px; color:var(--sub); margin-top:2px; }
+  .candnote.cnt { font-size:11px; color:var(--light); padding-top:6px; }
   .cand.manual { color:var(--sub); font-size:13px; }
   button.mini { background:none; border:0; width:100%; cursor:pointer; font-family:inherit; }
   textarea.field { resize:vertical; line-height:1.5; font-size:16px; }
@@ -846,6 +847,10 @@ function startFromText(text){
 // ---- 店名の候補(Google Maps): 住所 → 電話番号 → 店名 の順に探して、候補から選ぶ ----
 let candToken = 0;
 const PLACES_MONTHLY_LIMIT = 1500;   // 端末ごとの月の上限(レシート約500枚ぶん)
+// 今月の検索回数: ログイン中はクラウドの合計(全端末ぶん)、ログインしていなければこの端末のぶん
+let cloudUsage = null, fbUsageUnsub = null;
+const usedCount = () => cloudUsage !== null ? cloudUsage : Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0);
+const cntNote = () => { const n = usedCount(); return '<div class="candnote cnt">今月の店名検索: ' + n + ' / ' + PLACES_MONTHLY_LIMIT + '回(あと' + Math.max(0, PLACES_MONTHLY_LIMIT - n) + '回・' + (cloudUsage !== null ? "全端末の合計" : "この端末のぶん") + ')</div>'; };   // 1枚で3回(住所・電話・店名)
 async function suggestStores(info){
   const box = $("storeCands"), my = ++candToken, key = localStorage.getItem("placesKey");
   const queries = [info.address, info.phone, info.store].filter(Boolean);
@@ -856,13 +861,14 @@ async function suggestStores(info){
     box.innerHTML = '<div class="candnote">' + (key ? "店名の候補" : "Google Mapsの候補を使うには、キーの設定が必要です(このブラウザは未設定)") + "</div>" + read + manual; return;
   }
   // この端末で1か月に使う検索の回数に上限をつける(Googleの無料枠は月5,000回。料金が出ないように、その手前で自分で止める)
-  const ck = "placesCount." + today(0).slice(0,7), used = Number(localStorage.getItem(ck) || 0);
+  const ck = "placesCount." + today(0).slice(0,7), used = usedCount();
   if (used + queries.length > PLACES_MONTHLY_LIMIT) {
     box.hidden = false;
-    box.innerHTML = '<div class="candnote">今月の店名検索の上限(' + PLACES_MONTHLY_LIMIT + '回)に達したので、店名は下から選ぶか手入力してください。</div>' + read + manual;
+    box.innerHTML = '<div class="candnote">今月の店名検索の上限(' + PLACES_MONTHLY_LIMIT + '回)に達したので、店名は下から選ぶか手入力してください。</div>' + read + manual + cntNote();
     return;
   }
-  localStorage.setItem(ck, String(used + queries.length));   // 失敗しても数える(多めに数える方が安全)
+  localStorage.setItem(ck, String(Number(localStorage.getItem(ck) || 0) + queries.length));   // 失敗しても数える(多めに数える方が安全)
+  if (fbUser && fbDb) { try { usageDoc().set({ [today(0).slice(0,7)]: firebase.firestore.FieldValue.increment(queries.length) }, { merge: true }); } catch (e) { console.warn(e); } }   // クラウドの合計にも足す
   box.hidden = false; box.innerHTML = '<div class="candnote">店名の候補を探しています…</div>';
   const results = await Promise.allSettled(queries.map(q => fetch("https://places.googleapis.com/v1/places:searchText", {
     method:"POST",
@@ -879,7 +885,7 @@ async function suggestStores(info){
   });
   const failed = results.every(x => x.status === "rejected");
   box.innerHTML = '<div class="candnote">' + (top.length ? "店名の候補(タップで入力)" : failed ? "候補を取得できませんでした(キーの設定を確認してください)" : "候補が見つかりませんでした") + "</div>" +
-    top.map(c => '<button class="cand" data-name="' + esc(c.name) + '"><b>' + esc(c.name) + "</b><span>" + esc(c.addr) + "</span></button>").join("") + read + manual;
+    top.map(c => '<button class="cand" data-name="' + esc(c.name) + '"><b>' + esc(c.name) + "</b><span>" + esc(c.addr) + "</span></button>").join("") + read + manual + cntNote();
 }
 $("storeCands").addEventListener("click", e => {
   const b = e.target.closest(".cand"); if (!b) return;
@@ -892,7 +898,7 @@ $("storeCands").addEventListener("click", e => {
 });
 // 設定は目立たない場所に隠す: 一覧のタイトルを5回続けてタップ。保存したキーは画面に出さない
 function openKeySetting(){
-  const n = Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0), has = !!localStorage.getItem("placesKey");
+  const n = usedCount(), has = !!localStorage.getItem("placesKey");
   const k = prompt((has ? "設定済みです(キーは表示しません)。置き換えるときは、新しいキーを貼り付けてください。削除するときは「削除」と入力してください。" : "Google MapsのAPIキーを貼り付けてください。") + "\n今月の検索回数: " + n + " / " + PLACES_MONTHLY_LIMIT, "");
   if (k === null || !k.trim()) return;
   if (k.trim() === "削除") { localStorage.removeItem("placesKey"); showToast("店名検索の設定を削除しました"); return; }
@@ -1009,6 +1015,7 @@ $("bkFile").onchange = async e => {
   renderSyncUI();
 })();
 
+function usageDoc(){ return fbDb.collection("users").doc(fbUser.uid).collection("apps").doc("placesUsage"); }
 function dataDoc(){ return fbDb.collection("users").doc(fbUser.uid).collection("apps").doc("receipts"); }
 // Firestoreは空のキーを持てないので、learned は配列にして送る
 function cloudData(){
@@ -1023,7 +1030,8 @@ function onAuthChanged(user){
   fbUser = user;
   renderSyncUI();
   if (fbUnsub) { fbUnsub(); fbUnsub = null; }
-  if (user) startSync();
+  if (fbUsageUnsub) { fbUsageUnsub(); fbUsageUnsub = null; cloudUsage = null; }
+  if (user) { startSync(); watchUsage(); }
 }
 
 // 端末の記録とクラウドの記録を「まとめる」(どちらも消さない)。
@@ -1050,6 +1058,16 @@ function mergeData(r){
 }
 const syncSig = (rs, del) => rs.map(x => x.id + ":" + (x.mt || 0)).sort().join(",") + "|" + Object.keys(del || {}).sort().join(",");
 
+let usageSeeded = false;
+function watchUsage(){   // 店名検索の回数(全端末の合計)をクラウドから読む。クラウドに今月のぶんがなければ、この端末のぶんを最初に足す
+  const ym = today(0).slice(0,7);
+  fbUsageUnsub = usageDoc().onSnapshot(s => {
+    const d = s.exists ? s.data() : {}, l = Number(localStorage.getItem("placesCount." + ym) || 0);
+    if (d[ym] === undefined && l > 0 && !usageSeeded) { usageSeeded = true; usageDoc().set({ [ym]: firebase.firestore.FieldValue.increment(l) }, { merge: true }); return; }
+    cloudUsage = Number(d[ym] || 0);
+    const el = document.querySelector(".candnote.cnt"); if (el) el.outerHTML = cntNote();
+  }, e => console.warn("usage", e));
+}
 function startSync(){
   dataDoc().get().then(snap => {
     const remote = snap.exists ? snap.data() : null;
