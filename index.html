@@ -54,7 +54,8 @@
   .cand { display:block; width:100%; text-align:left; background:#fff; border:0; border-top:1px solid var(--line); padding:11px 12px; font-size:14px; color:var(--text); cursor:pointer; }
   .cand b { display:block; font-weight:700; }
   .cand span { display:block; font-size:12px; color:var(--sub); margin-top:2px; }
-  .candnote.cnt { font-size:11px; color:var(--light); padding-top:6px; }
+  .usage { text-align:right; font-size:11px; color:var(--light); margin-top:6px; }
+  .usage:not(:empty) { line-height:1.2; margin-bottom:-8px; }   /* 文字の下の空白を詰める */
   .cand.manual { color:var(--sub); font-size:13px; }
   button.mini { background:none; border:0; width:100%; cursor:pointer; font-family:inherit; }
   textarea.field { resize:vertical; line-height:1.5; font-size:16px; }
@@ -191,6 +192,7 @@
         <svg viewBox="0 0 24 24" fill="#fff"><path d="M9 4l-1.5 2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.5L15 4zM12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
         レシートを撮影する
       </a>
+      <div class="usage" id="usageLine"></div>
     </div>
     <div class="tabs">
       <div class="seg"><button id="tabHist" class="on">履歴</button><button id="tabReport">レポート</button></div>
@@ -281,6 +283,8 @@ let receipts = load(KEY, null);
 let learned = load(LKEY, {});
 let customCats = load("cats.v1", []);
 let storeMap = Object.fromEntries(load("stores.v1", []).map(x => [x.k, x.n]));   // 電話番号/登録番号 → 確認した店名
+const PLACES_MONTHLY_LIMIT = 1500;   // 端末ごとの月の上限(レシート約500枚ぶん)
+let cloudUsage = null, fbUsageUnsub = null;   // 店名検索の今月の回数(クラウドの合計。ログインしていなければnull)
 let deleted = load("deleted.v1", {});   // 消したレシートのID → 消した時刻(端末をまたぐ同期で、消したものが復活しないように)
 let updatedAt = Number(localStorage.getItem("receipts.updatedAt") || 0), applyingRemote = false;
 if (!receipts) receipts = [];   // 記録がない端末は、空で始める(見本のデータは作らない)
@@ -353,6 +357,7 @@ function renderList(){
   if (!months.includes(month)) month = months[0];
   const monthOpts = months.map(m=>'<option value="'+m+'"'+(m===month?' selected':'')+'>'+m.slice(0,4)+'年'+Number(m.slice(5))+'月</option>').join("");
   $("month").innerHTML = monthOpts; $("month").parentNode.hidden = tab !== "hist";   // 月の選択: 履歴は上、レポートは「内訳」の中だけ(推移は全期間なので不要)
+  updateUsage();
   $("tabReport").classList.toggle("on", tab==="report"); $("tabHist").classList.toggle("on", tab==="hist");
   $("view").innerHTML = tab==="hist" ? histHTML() : '<div class="rtabs"><button data-rv="break"' + (rview==="break" ? ' class="on"' : '') + '>内訳</button><button data-rv="trend"' + (rview==="trend" ? ' class="on"' : '') + '>推移</button></div>' + (rview==="trend" ? trendHTML() : '<div class="monthbar"><select id="month2">' + monthOpts + '</select></div>' + reportHTML());
   if (tab==="report" && rview==="trend") { showReadout(selYm || month); const sc = $("trscroll"); if (sc) sc.scrollLeft = trendScroll === null ? sc.scrollWidth : trendScroll; }
@@ -846,11 +851,13 @@ function startFromText(text){
 
 // ---- 店名の候補(Google Maps): 住所 → 電話番号 → 店名 の順に探して、候補から選ぶ ----
 let candToken = 0;
-const PLACES_MONTHLY_LIMIT = 1500;   // 端末ごとの月の上限(レシート約500枚ぶん)
 // 今月の検索回数: ログイン中はクラウドの合計(全端末ぶん)、ログインしていなければこの端末のぶん
-let cloudUsage = null, fbUsageUnsub = null;
-const usedCount = () => cloudUsage !== null ? cloudUsage : Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0);
-const cntNote = () => { const n = usedCount(); return '<div class="candnote cnt">今月の店名検索: ' + n + ' / ' + PLACES_MONTHLY_LIMIT + '回(あと' + Math.max(0, PLACES_MONTHLY_LIMIT - n) + '回・' + (cloudUsage !== null ? "全端末の合計" : "この端末のぶん") + ')</div>'; };   // 1枚で3回(住所・電話・店名)
+function usedCount(){ return cloudUsage !== null ? cloudUsage : Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0); }
+function updateUsage(){   // 撮影ボタンの下(右側)に、今月の店名検索の回数を出す。Google Mapsのキーを設定していない端末では出さない
+  const el = $("usageLine"); if (!el) return;
+  if (!localStorage.getItem("placesKey")) { el.textContent = ""; return; }
+  const n = usedCount(); el.textContent = "店名検索 今月 " + n + " / " + PLACES_MONTHLY_LIMIT + "回(あと" + Math.max(0, PLACES_MONTHLY_LIMIT - n) + "回・" + (cloudUsage !== null ? "全端末の合計" : "この端末のぶん") + ")";   // 1枚で3回(住所・電話・店名)
+}
 async function suggestStores(info){
   const box = $("storeCands"), my = ++candToken, key = localStorage.getItem("placesKey");
   const queries = [info.address, info.phone, info.store].filter(Boolean);
@@ -864,10 +871,11 @@ async function suggestStores(info){
   const ck = "placesCount." + today(0).slice(0,7), used = usedCount();
   if (used + queries.length > PLACES_MONTHLY_LIMIT) {
     box.hidden = false;
-    box.innerHTML = '<div class="candnote">今月の店名検索の上限(' + PLACES_MONTHLY_LIMIT + '回)に達したので、店名は下から選ぶか手入力してください。</div>' + read + manual + cntNote();
+    box.innerHTML = '<div class="candnote">今月の店名検索の上限(' + PLACES_MONTHLY_LIMIT + '回)に達したので、店名は下から選ぶか手入力してください。</div>' + read + manual;
     return;
   }
   localStorage.setItem(ck, String(Number(localStorage.getItem(ck) || 0) + queries.length));   // 失敗しても数える(多めに数える方が安全)
+  updateUsage();
   if (fbUser && fbDb) { try { usageDoc().set({ [today(0).slice(0,7)]: firebase.firestore.FieldValue.increment(queries.length) }, { merge: true }); } catch (e) { console.warn(e); } }   // クラウドの合計にも足す
   box.hidden = false; box.innerHTML = '<div class="candnote">店名の候補を探しています…</div>';
   const results = await Promise.allSettled(queries.map(q => fetch("https://places.googleapis.com/v1/places:searchText", {
@@ -885,7 +893,7 @@ async function suggestStores(info){
   });
   const failed = results.every(x => x.status === "rejected");
   box.innerHTML = '<div class="candnote">' + (top.length ? "店名の候補(タップで入力)" : failed ? "候補を取得できませんでした(キーの設定を確認してください)" : "候補が見つかりませんでした") + "</div>" +
-    top.map(c => '<button class="cand" data-name="' + esc(c.name) + '"><b>' + esc(c.name) + "</b><span>" + esc(c.addr) + "</span></button>").join("") + read + manual + cntNote();
+    top.map(c => '<button class="cand" data-name="' + esc(c.name) + '"><b>' + esc(c.name) + "</b><span>" + esc(c.addr) + "</span></button>").join("") + read + manual;
 }
 $("storeCands").addEventListener("click", e => {
   const b = e.target.closest(".cand"); if (!b) return;
@@ -1065,7 +1073,7 @@ function watchUsage(){   // 店名検索の回数(全端末の合計)をクラ�
     const d = s.exists ? s.data() : {}, l = Number(localStorage.getItem("placesCount." + ym) || 0);
     if (d[ym] === undefined && l > 0 && !usageSeeded) { usageSeeded = true; usageDoc().set({ [ym]: firebase.firestore.FieldValue.increment(l) }, { merge: true }); return; }
     cloudUsage = Number(d[ym] || 0);
-    const el = document.querySelector(".candnote.cnt"); if (el) el.outerHTML = cntNote();
+    updateUsage();
   }, e => console.warn("usage", e));
 }
 function startSync(){
