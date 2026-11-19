@@ -284,6 +284,7 @@ let learned = load(LKEY, {});
 let customCats = load("cats.v1", []);
 let storeMap = Object.fromEntries(load("stores.v1", []).map(x => [x.k, x.n]));   // 電話番号/登録番号 → 確認した店名
 const PLACES_MONTHLY_LIMIT = 1500;   // 端末ごとの月の上限(レシート約500枚ぶん)
+let fbUser = null, fbDb = null, fbUnsub = null;   // 起動直後の読み取り結果の処理(startFromText)が先に使うので、ここで先に宣言する
 let cloudUsage = null, fbUsageUnsub = null;   // 店名検索の今月の回数(クラウドの合計。ログインしていなければnull)
 let deleted = load("deleted.v1", {});   // 消したレシートのID → 消した時刻(端末をまたぐ同期で、消したものが復活しないように)
 let updatedAt = Number(localStorage.getItem("receipts.updatedAt") || 0), applyingRemote = false;
@@ -722,15 +723,15 @@ function parseReceiptText(raw, knownStores) {
   // 明細: 改行がある文字だけ。ヘッダー(店名・日付・電話など)の終わりから、最初の合計の行までを見る
   const items = [];
   if (hasLines) {
-    const totalIdx = lines.findIndex(l => /合計|小計|台計|現計|お買上|ご請求|お支払|内税|外税|対象額|対象計|消費税|税込/.test(l));
+    const totalIdx = lines.findIndex(l => /合計|小計|台計|現計|お買上(?!明細)|ご請求|お支払|内税|外税|対象額|対象計|消費税|税込/.test(l));
     const end = totalIdx >= 0 ? totalIdx : lines.length;
     const HEADER = /登録番号|TEL|電話|0\d{1,4}-\d{1,4}-\d{3,4}|\d{4}[\/年.\-]\d{1,2}[\/月.\-]\d{1,2}|\d{1,2}:\d{2}|領収|納品書|レシート|レジ|会員|カード|X{4,}|\*{4,}|^No\.?\s*\d+/;
     let start = 0;
-    lines.slice(0, end).forEach((l, i) => { if (HEADER.test(l)) start = i + 1; });
+    lines.slice(0, end).forEach((l, i) => { const code = x => /^\d{2,5}(?:-\d+){1,3}[ぁ-んァ-ン一-龥]/.test(x || ""); if (HEADER.test(l) && !code(l) && !(code(lines[i - 1]) && /^No\.?\s*\d+$/i.test(l))) start = i + 1; });   // 商品コード付きの商品名の行は、見出し扱いにしない(「カード」入りの商品名)
     const NOISE = /値引|割引|クーポン|承認|番号|区分|支払|一括|会員|カード|ビザ|マスター|APL|AID|CREDIT|伝票|売上|日時|クレジット|ご利用|ありがとう|税|対象|明細|通り|軽減|レジ|責|領収|納品|登録|様|係員|端末|通番|有効期限|訂正|取消|取り消し|返品|数量|単価|VISA|Visa|JCB|AMEX/;   // レシートの定型文は、商品名にしない
-    const PRICE = /^¥?\s*(\d{1,3}(?:,\d{3})+|\d{2,6})\s*円?\s*[※*軽]?$/;                  // 金額だけの行
+    const PRICE = /^¥?\s*(\d{1,3}(?:,\s?\d{3})+|\d{2,6})\s*円?\s*[※*軽]?$/;                  // 金額だけの行
     const SAME = /^(.*?[^\d\s¥,.])\s*¥?\s*(\d{1,3}(?:,\d{3})+|\d{2,6})\s*[※*軽]?$/;      // 「商品名 金額」の行
-    const isName = l => /[ぁ-んァ-ン一-龥A-Za-z]{2,}/.test(l) && !/^[@¥]/.test(l) && !/^\d+(\.\d+)?\s*[A-Za-zコ個点本袋枚]/.test(l) && !/X{4,}|\*{4,}/.test(l) && !NOISE.test(l);
+    const isName = l => /[ぁ-んァ-ン一-龥A-Za-z]{2,}/.test(l) && !/^(?:コード|品名|商品名|金額|数量?|単価|小計|点数)$/.test(l) && !/^No\.?\s*\d+$/i.test(l) && !/^[@¥]/.test(l) && !/^\d+(\.\d+)?\s*[A-Za-zコ個点本袋枚]/.test(l) && !/X{4,}|\*{4,}/.test(l) && !NOISE.test(l);
     // ガソリン: 「ハイオク」「レギュラー」「軽油」の行のあとに、数量・単価などの見出しが並ぶので、¥の付いた金額(と、その次のマイナスの値引き)を探す
     let gas = null;
     const gi = lines.findIndex((l, i) => i < end && /^(?:ハイオク|レギュラー|軽油|ガソリン|灯油)/.test(l));
@@ -743,8 +744,14 @@ function parseReceiptText(raw, knownStores) {
       }
     }
     const seq = [], body = lines.slice(start, end);
+    let grp = false;   // バーコード(数字8〜14桁)の次の行から続く商品名の行は、1つの商品名につなぐ(「Hamee」+「iP5シリーズDS 01」)
     body.forEach((l, bi) => {
       let m;
+      if (/^\d{8,14}$/.test(l)) { grp = "start"; return; }
+      const wasGrp = grp; grp = false;
+      if (/^No\.?\s*\d+$/i.test(l)) return;   // 伝票番号の行
+      if ((m = /^\d{2,5}(?:-\d+){1,3}\s*([ぁ-んァ-ン一-龥A-Za-z].*)$/.exec(l)) && /[ぁ-んァ-ン一-龥]{2,}/.test(m[1]) && !/TEL|電話/.test(l)) { seq.push({ n: m[1].trim() }); return; }   // 「493-900441-000森のカードホルダー」: 先頭の商品コードを外す(名前に「カード」があっても、商品名として使う)
+      if (wasGrp && isName(l) && !PRICE.test(l)) { if (wasGrp === "cont" && seq.length && seq[seq.length - 1].n !== undefined) seq[seq.length - 1].n += " " + l.trim(); else seq.push({ n: l.replace(/[※*軽]$/, "").trim() }); grp = "cont"; return; }
       if ((m = /^[-−▲△]\s*¥?\s*(\d[\d,]*)$/.exec(l)) && bi > 0 && /訂正|取消|取り消し|返品/.test(body[bi - 1])) seq.push({ cancel: num(m[1]) });   // 「訂正 -390」: 同じ金額の直前の品目を取り消す
       else if ((m = PRICE.exec(l))) seq.push({ p: num(m[1]) });
       else if ((m = SAME.exec(l)) && isName(m[1])) seq.push({ both: { n: m[1].trim(), p: num(m[2]) } });   // 同じ行に商品名と金額
@@ -774,6 +781,12 @@ function parseReceiptText(raw, knownStores) {
       });
     }
     items.forEach(it => { it.n = it.n.replace(/^\d{3,}\s*(?=\D)/, ""); });   // 「0002普通車」→「普通車」(先頭の数字は商品コード)
+    // 「ダイヤモンドウロコとり(¥100外」のように、商品名の行の終わりに税抜きの金額がある形(合計の後ろに並ぶことがある)
+    if (!items.length || items.every(i => !i.n || /^金額$/.test(i.n))) {
+      const ext = [];
+      lines.forEach(l => { const m = /^(.*?[ぁ-んァ-ン一-龥A-Za-z0-9])\s*[（(]?\s*[¥￥]\s*(\d[\d,]*)\s*外\s*$/.exec(l); if (m) ext.push({ n: m[1].trim(), p: num(m[2]) }); });
+      if (ext.length) { items.length = 0; items.push(...ext); }
+    }
     // 値引き: 「値引」「割引」「クーポン」の行(か、その次の行)にマイナスの金額があれば、マイナスの品目にして、合計と合うようにする
     if (items.length) {
       const gIdx = lines.findIndex(l => /合計/.test(l)), dEnd = gIdx >= 0 ? gIdx : lines.length;
@@ -845,7 +858,7 @@ function startFromText(text){
   items.forEach((i, k) => { if (i.p < 0 && k > 0) i.c = items[k-1].c; else if (i.n === "消費税" && big) i.c = big.c; });   // 値引きは直前の品目、消費税は一番高い品目のジャンル
   const first = { store, date:r.date || today(0), time:r.time || nowTime(), total:r.total || 0, items:items.map(i => ({ n:i.n, p:i.p, c:i.c })) };   // アプリが最初に反映した結果(あとで直したかの比較用)
   openEdit({ id:null, store: mine, phone:r.phone, reg:r.reg, address:r.address, date:first.date, time:first.time, total:first.total, items, raw:text, init:first }, null);
-  $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "(店名は下の候補から選んでください)");
+  $("note").textContent = "※文字から読み取った結果です。店名・日付・金額を確認してください。" + (r.items.length ? "" : "(商品の明細は読み取れなかったので、1行にまとめています)") + (mine ? "(店名は前に保存したものです)" : "(店名は下の候補から選ぶか、店名を入力して「入力した名前で検索」を押してください)");
   if (!mine) suggestStores({ address:r.address, phone:r.phone, store:r.store });
 }
 
@@ -861,8 +874,8 @@ function updateUsage(){   // 撮影ボタンの下(右側)に、今月の店名�
 async function suggestStores(info){
   const box = $("storeCands"), my = ++candToken, key = localStorage.getItem("placesKey");
   const queries = [info.address, info.phone, info.store].filter(Boolean);
-  const read = info.store ? '<button class="cand" data-name="' + esc(info.store) + '"><b>' + esc(info.store) + "</b><span>レシートの文字から読み取った名前</span></button>" : "";
-  const manual = '<button class="cand manual" data-manual="1">候補にない(自分で入力)</button>';
+  const read = info.store && !info.searchOnly ? '<button class="cand" data-name="' + esc(info.store) + '"><b>' + esc(info.store) + "</b><span>レシートの文字から読み取った名前</span></button>" : "";
+  const manual = '<button class="cand manual" data-search="1">入力した名前で検索</button><button class="cand manual" data-manual="1">候補にない(自分で入力)</button>';
   if (!key || !queries.length) {
     box.hidden = !(read || !key); if (box.hidden) return;
     box.innerHTML = '<div class="candnote">' + (key ? "店名の候補" : "Google Mapsの候補を使うには、キーの設定が必要です(このブラウザは未設定)") + "</div>" + read + manual; return;
@@ -897,7 +910,8 @@ async function suggestStores(info){
 }
 $("storeCands").addEventListener("click", e => {
   const b = e.target.closest(".cand"); if (!b) return;
-  if (b.dataset.manual) { $("storeCands").hidden = true; $("eStore").focus(); $("eStore").select(); }
+  if (b.dataset.search) { const t = $("eStore").value.trim(); if (!t) { showToast("店名を入力してください"); $("eStore").focus(); return; } suggestStores({ store: t, searchOnly: true }); }
+  else if (b.dataset.manual) { $("storeCands").hidden = true; $("eStore").focus(); $("eStore").select(); }
   else {
     $("eStore").value = b.dataset.name; $("storeCands").hidden = true;
     cur.items.forEach(it => { if (it.a) it.c = guess(it.n, b.dataset.name); });   // 店が分かったので、自動のジャンルを付け直す
@@ -964,7 +978,7 @@ const firebaseConfig = {
   messagingSenderId: "433296418616",
   appId: "1:433296418616:web:bf83c521c8355487c883cd"
 };
-let fbUser = null, fbDb = null, fbUnsub = null;
+/* fbUser等は先頭で宣言済み */
 
 $("reloadBtn").onclick = () => location.reload();
 
