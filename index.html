@@ -285,7 +285,7 @@ let customCats = load("cats.v1", []);
 let storeMap = Object.fromEntries(load("stores.v1", []).map(x => [x.k, x.n]));   // 電話番号/登録番号 → 確認した店名
 const PLACES_MONTHLY_LIMIT = 1500;   // 端末ごとの月の上限(レシート約500枚ぶん)
 let fbUser = null, fbDb = null, fbUnsub = null;   // 起動直後の読み取り結果の処理(startFromText)が先に使うので、ここで先に宣言する
-let cloudUsage = null, fbUsageUnsub = null;   // 店名検索の今月の回数(クラウドの合計。ログインしていなければnull)
+let cloudUsage = null, cloudUsageErr = false, fbUsageUnsub = null;   // 店名検索の今月の回数(クラウドの合計。ログインしていなければnull)
 let deleted = load("deleted.v1", {});   // 消したレシートのID → 消した時刻(端末をまたぐ同期で、消したものが復活しないように)
 let updatedAt = Number(localStorage.getItem("receipts.updatedAt") || 0), applyingRemote = false;
 if (!receipts) receipts = [];   // 記録がない端末は、空で始める(見本のデータは作らない)
@@ -889,11 +889,18 @@ function startFromText(text){
 // ---- 店名の候補(Google Maps): 住所 → 電話番号 → 店名 の順に探して、候補から選ぶ ----
 let candToken = 0;
 // 今月の検索回数: ログイン中はクラウドの合計(全端末ぶん)、ログインしていなければこの端末のぶん
-function usedCount(){ return cloudUsage !== null ? cloudUsage : Number(localStorage.getItem("placesCount." + today(0).slice(0,7)) || 0); }
+function localUsage(ym){ return Number(localStorage.getItem("placesCount." + (ym || today(0).slice(0,7))) || 0); }
+function deviceId(){ let d = localStorage.getItem("deviceId"); if (!d) { d = Math.random().toString(36).slice(2, 8); localStorage.setItem("deviceId", d); } return d; }
+// クラウドには端末ごとの回数を「月_端末ID」で置く(ログインしていない間に数えた分も、あとから正しい値で上書きされる)
+function pushUsage(ym){
+  if (!(fbUser && fbDb)) return;
+  usageDoc().set({ [ym + "_" + deviceId()]: localUsage(ym) }, { merge: true }).then(() => { if (cloudUsageErr) { cloudUsageErr = false; updateUsage(); } }).catch(e => { console.warn("usage", e); cloudUsageErr = true; updateUsage(); });
+}
+function usedCount(){ return Math.max(cloudUsage !== null ? cloudUsage : 0, localUsage()); }
 function updateUsage(){   // 撮影ボタンの下(右側)に、今月の店名検索の回数を出す。Google Mapsのキーを設定していない端末では出さない
   const el = $("usageLine"); if (!el) return;
   if (!localStorage.getItem("placesKey")) { el.textContent = ""; return; }
-  const n = usedCount(); el.textContent = "店名検索 今月 " + n + " / " + PLACES_MONTHLY_LIMIT + "回(あと" + Math.max(0, PLACES_MONTHLY_LIMIT - n) + "回・" + (cloudUsage !== null ? "全端末の合計" : "この端末のぶん") + ")";   // 1枚で3回(住所・電話・店名)
+  const n = usedCount(); el.textContent = "店名検索 今月 " + n + " / " + PLACES_MONTHLY_LIMIT + "回(あと" + Math.max(0, PLACES_MONTHLY_LIMIT - n) + "回・" + (cloudUsage !== null ? "全端末の合計" : "この端末のぶん") + (cloudUsageErr ? "・クラウドに保存できていません" : "") + ")";   // 1枚で3回(住所・電話・店名)
 }
 async function suggestStores(info){
   const box = $("storeCands"), my = ++candToken, key = localStorage.getItem("placesKey");
@@ -913,7 +920,7 @@ async function suggestStores(info){
   }
   localStorage.setItem(ck, String(Number(localStorage.getItem(ck) || 0) + queries.length));   // 失敗しても数える(多めに数える方が安全)
   updateUsage();
-  if (fbUser && fbDb) { try { usageDoc().set({ [today(0).slice(0,7)]: firebase.firestore.FieldValue.increment(queries.length) }, { merge: true }); } catch (e) { console.warn(e); } }   // クラウドの合計にも足す
+  pushUsage(today(0).slice(0,7));   // クラウドにも、この端末の回数を書く
   box.hidden = false; box.innerHTML = '<div class="candnote">店名の候補を探しています…</div>';
   const results = await Promise.allSettled(queries.map(q => fetch("https://places.googleapis.com/v1/places:searchText", {
     method:"POST",
@@ -1104,15 +1111,14 @@ function mergeData(r){
 }
 const syncSig = (rs, del) => rs.map(x => x.id + ":" + (x.mt || 0)).sort().join(",") + "|" + Object.keys(del || {}).sort().join(",");
 
-let usageSeeded = false;
-function watchUsage(){   // 店名検索の回数(全端末の合計)をクラウドから読む。クラウドに今月のぶんがなければ、この端末のぶんを最初に足す
-  const ym = today(0).slice(0,7);
+function watchUsage(){   // 店名検索の回数をクラウドから読む。全端末の合計 = 古い形の合計(月だけのキー)+ 端末ごとの回数(月_端末ID)の足し算
+  const ym = today(0).slice(0,7), mine = ym + "_" + deviceId();
   fbUsageUnsub = usageDoc().onSnapshot(s => {
-    const d = s.exists ? s.data() : {}, l = Number(localStorage.getItem("placesCount." + ym) || 0);
-    if (d[ym] === undefined && l > 0 && !usageSeeded) { usageSeeded = true; usageDoc().set({ [ym]: firebase.firestore.FieldValue.increment(l) }, { merge: true }); return; }
-    cloudUsage = Number(d[ym] || 0);
+    const d = s.exists ? s.data() : {};
+    cloudUsage = Object.keys(d).reduce((t, k) => t + (k === ym || k.startsWith(ym + "_") ? Number(d[k] || 0) : 0), 0);
+    if (Number(d[mine] || 0) < localUsage(ym)) pushUsage(ym);   // この端末のぶんが、クラウドに届いていなければ送る
     updateUsage();
-  }, e => console.warn("usage", e));
+  }, e => { console.warn("usage", e); cloudUsageErr = true; updateUsage(); });
 }
 function startSync(){
   dataDoc().get().then(snap => {
