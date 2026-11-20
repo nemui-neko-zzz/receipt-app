@@ -202,7 +202,7 @@
     <div class="monthbar"><select id="month"></select></div>
     <div id="view"></div>
     <div class="foot">
-      <button id="bkSave">バックアップを保存</button><span>|</span><button id="bkLoad">バックアップから戻す</button>
+      <button id="bkSave">バックアップを保存</button><span>|</span><button id="bkLoad">バックアップから戻す</button><span>|</span><button id="logSave">読み取りログ</button>
       <input type="file" id="bkFile" accept="application/json,.json" hidden>
     </div>
   </section>
@@ -609,8 +609,32 @@ $("items").addEventListener("click", e => {
 $("addItem").onclick = () => { cur.items.push({n:"",p:0,c:"その他"}); renderItems(); const f = $("items").querySelector(".item:last-child input"); if (f) f.focus(); };
 $("cancel").onclick = () => { if (cur && cur.id !== null) show("detail"); else backToList(); };
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
+// 読み取りログ(精度の見直し用): 最初の読み取りから直して保存した分を、この端末に貯める。「読み取りログ」ボタンでファイルに書き出す
+const READLOG_KEY = "readlog.v1";
+const readLog = () => { try { return JSON.parse(localStorage.getItem(READLOG_KEY) || "[]"); } catch { return []; } };
+function logReadFix(c){
+  if (!c.raw || !c.init) return;
+  const norm = o => JSON.stringify([o.store, o.date, o.time, Number(o.total), o.items.map(i => [i.n, Number(i.p), i.c])]);
+  const now = { store:c.store, phone:c.phone, address:c.address, reg:c.reg, date:c.date, time:c.time, total:c.total, items:c.items };
+  if (norm(c.init) === norm(now)) return;   // 直していない(読み取りが合っていた)ものは貯めない
+  const log = readLog().filter(x => x.raw !== c.raw);   // 同じ全文は最新の1件だけ
+  log.push({ at:new Date().toISOString(), raw:c.raw, first:resultBlock({ ...c.init, phone:c.phone, address:c.address, reg:c.reg }), fixed:resultBlock(now) });
+  try { localStorage.setItem(READLOG_KEY, JSON.stringify(log.slice(-200))); } catch (e) { console.warn(e); }
+  updateLogBtn();
+}
+function updateLogBtn(){ const b = $("logSave"); if (b) b.textContent = "読み取りログ(" + readLog().length + "件)"; }
+$("logSave").onclick = () => {
+  const log = readLog(); if (!log.length) { showToast("貯まっているログはありません"); return; }
+  const text = log.map((x, i) => "=== " + (i + 1) + " / " + x.at + " ===\n【読み取った全文】\n" + x.raw + "\n\n【アプリが最初に反映した結果】\n" + x.first + "\n\n【直したあと】\n" + x.fixed).join("\n\n\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type:"text/plain" }));
+  a.download = "receipt-readlog-" + today(0) + ".txt";
+  a.click(); URL.revokeObjectURL(a.href);
+  if (confirm("書き出しました。貯めたログ(" + log.length + "件)を消しますか?\n(ファイルがダウンロードに入ったのを確かめてから「OK」)")) { localStorage.removeItem(READLOG_KEY); updateLogBtn(); }
+};
 $("save").onclick = () => {
   cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0); cur.mt = Date.now();
+  logReadFix(cur);   // 最初の読み取りから直して保存したときは、全文と前後の結果をログに貯める
   cur.items.forEach(i => { delete i.a; }); delete cur.raw; delete cur.init; delete cur.address;   // 読み取りの全文・比較用のデータ・住所は、レシートには残さない
   if (cur.store !== "(店名なし)") [cur.phone, cur.reg].filter(Boolean).forEach(k => { storeMap[k] = cur.store; });   // 次から同じ店は自動で入る
   if (cur.id === null) { cur.id = Date.now(); receipts.push(cur); }
@@ -618,7 +642,7 @@ $("save").onclick = () => {
   persist(); month = cur.date.slice(0,7); renderList(); show("list");
 };
 
-renderList();
+renderList(); updateLogBtn();
 
 // レシートの文字(iPhoneのライブテキスト等で読んだもの)から、店名・日付・時刻・合計・明細を取り出す
 function parseReceiptText(raw, knownStores) {
