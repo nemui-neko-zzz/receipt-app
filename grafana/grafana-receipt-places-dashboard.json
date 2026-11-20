@@ -1,0 +1,184 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_GCM",
+      "label": "Google Cloud Monitoring",
+      "type": "datasource",
+      "pluginId": "stackdriver",
+      "pluginName": "Google Cloud Monitoring"
+    }
+  ],
+  "title": "レシートアプリ Places API 使用状況",
+  "uid": "receipt-places-usage",
+  "schemaVersion": 39,
+  "version": 5,
+  "timezone": "America/Los_Angeles",
+  "refresh": "",
+  "time": {
+    "from": "now/M",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "1日ごとの回数(使った日だけ点が出ます)",
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${DS_GCM}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${DS_GCM}"
+          },
+          "queryType": "timeSeriesList",
+          "timeSeriesList": {
+            "projectName": "receipt-maps",
+            "filters": [
+              "metric.type",
+              "=",
+              "serviceruntime.googleapis.com/api/request_count",
+              "AND",
+              "resource.label.service",
+              "=",
+              "places.googleapis.com"
+            ],
+            "crossSeriesReducer": "REDUCE_SUM",
+            "perSeriesAligner": "ALIGN_SUM",
+            "alignmentPeriod": "+86400s",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "showPoints": "always",
+            "pointSize": 8
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "今月の累計(橙の線=アプリの上限1,500回 / 赤の線=Google無料枠5,000回)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "${DS_GCM}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "${DS_GCM}"
+          },
+          "queryType": "timeSeriesList",
+          "timeSeriesList": {
+            "projectName": "receipt-maps",
+            "filters": [
+              "metric.type",
+              "=",
+              "serviceruntime.googleapis.com/api/request_count",
+              "AND",
+              "resource.label.service",
+              "=",
+              "places.googleapis.com"
+            ],
+            "crossSeriesReducer": "REDUCE_SUM",
+            "perSeriesAligner": "ALIGN_SUM",
+            "alignmentPeriod": "+86400s",
+            "preprocessor": "none"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "cumulativeFunctions",
+            "cumulative": {
+              "reducer": "sum"
+            },
+            "alias": "累計",
+            "replaceFields": true
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "max": 5500,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "showPoints": "always",
+            "pointSize": 8,
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1500
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "description": "目安です。\n・線の数字は、Googleに届いたリクエスト数です(エラーも含みます)。\n・橙の線(1,500回)は、アプリが店名検索を止める回数です。アプリは、失敗した検索も数えるため、アプリの画面の数字とは少しずれます。\n・赤の線(5,000回)は、Text Search Proの月の無料枠です。\n・課金の対象になるかどうかは、Google Cloudの請求レポートが正です。\n・数字は、数分おくれることがあります。月の区切りは太平洋時間です。"
+    }
+  ]
+}
