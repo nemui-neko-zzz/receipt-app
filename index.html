@@ -614,6 +614,31 @@ $("remove").onclick = () => { if (cur.id === null) show("list"); else removeRece
 // 読み取りログ(精度の見直し用): 最初の読み取りから直して保存した分を、この端末に貯める。「読み取りログ」ボタンでファイルに書き出す
 const READLOG_KEY = "readlog.v1";
 const readLog = () => { try { return JSON.parse(localStorage.getItem(READLOG_KEY) || "[]"); } catch { return []; } };
+const READLOG_CLEARED_KEY = "readlog.cleared";   // 書き出して消した最後のログの時刻(これ以前のログは、他の端末から戻ってきても捨てる)
+const logCleared = () => localStorage.getItem(READLOG_CLEARED_KEY) || "";
+let fbLogUnsub = null;
+const logDoc = () => fbDb.collection("users").doc(fbUser.uid).collection("apps").doc("receiptReadlog");   // 1MB上限があるので、レシート本体とは別の書類にする
+const trimLog = list => { while (list.length > 1 && (list.length > 200 || JSON.stringify(list).length > 700000)) list.shift(); return list; };
+const logSig = list => list.map(x => x.at + ":" + x.raw.length).join(",");
+function pushLog(){
+  if (!fbUser || !fbDb) return;
+  try { logDoc().set({ entries: readLog(), clearedAt: logCleared() }).catch(e => console.warn("log push", e)); } catch (e) { console.warn("log push", e); }
+}
+// 端末のログとクラウドのログをまとめる(同じ全文は新しい方。書き出して消した分は復活させない)
+function mergeLog(r){
+  const cleared = [logCleared(), r.clearedAt || ""].sort().pop();
+  const byRaw = new Map();
+  [...(r.entries || []), ...readLog()].forEach(x => { if (x && x.raw && x.at > cleared) { const o = byRaw.get(x.raw); if (!o || x.at > o.at) byRaw.set(x.raw, x); } });
+  const list = trimLog([...byRaw.values()].sort((a, b) => a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  if (cleared) localStorage.setItem(READLOG_CLEARED_KEY, cleared);
+  const changed = logSig(list) !== logSig(readLog());
+  if (changed) { try { localStorage.setItem(READLOG_KEY, JSON.stringify(list)); } catch (e) { console.warn(e); } }
+  updateLogBtn();
+  if (logSig(list) !== logSig(trimLog((r.entries || []).filter(x => x && x.raw && x.at > cleared))) || cleared !== (r.clearedAt || "")) pushLog();   // クラウドに無いものがあれば上げる
+}
+function watchLog(){
+  fbLogUnsub = logDoc().onSnapshot(s => mergeLog(s.exists ? s.data() : {}), e => console.warn("log", e));
+}
 function logReadFix(c){
   if (!c.raw || !c.init) return;
   const norm = o => JSON.stringify([o.store, o.date, o.time, Number(o.total), o.items.map(i => [i.n, Number(i.p), i.c])]);
@@ -621,8 +646,8 @@ function logReadFix(c){
   if (norm(c.init) === norm(now)) return;   // 直していない(読み取りが合っていた)ものは貯めない
   const log = readLog().filter(x => x.raw !== c.raw);   // 同じ全文は最新の1件だけ
   log.push({ at:new Date().toISOString(), raw:c.raw, first:resultBlock({ ...c.init, phone:c.phone, address:c.address, reg:c.reg }), fixed:resultBlock(now) });
-  try { localStorage.setItem(READLOG_KEY, JSON.stringify(log.slice(-200))); } catch (e) { console.warn(e); }
-  updateLogBtn();
+  try { localStorage.setItem(READLOG_KEY, JSON.stringify(trimLog(log))); } catch (e) { console.warn(e); }
+  updateLogBtn(); pushLog();
 }
 function updateLogBtn(){ const b = $("logSave"); if (b) b.textContent = "読み取りログ(" + readLog().length + "件)"; }
 $("logSave").onclick = () => {
@@ -632,7 +657,10 @@ $("logSave").onclick = () => {
   a.href = URL.createObjectURL(new Blob([text], { type:"text/plain" }));
   a.download = "receipt-readlog-" + today(0) + ".txt";
   a.click(); URL.revokeObjectURL(a.href);
-  if (confirm("書き出しました。貯めたログ(" + log.length + "件)を消しますか?\n(ファイルがダウンロードに入ったのを確かめてから「OK」)")) { localStorage.removeItem(READLOG_KEY); updateLogBtn(); }
+  if (confirm("書き出しました。貯めたログ(" + log.length + "件)を消しますか?\n(ファイルがダウンロードに入ったのを確かめてから「OK」)" + (fbUser ? "\n同期中なので、ほかの端末のログも消えます" : ""))) {
+    localStorage.setItem(READLOG_CLEARED_KEY, log.map(x => x.at).sort().pop());   // 書き出した分までを「消した」印にする(書き出したあとに増えた分は残る)
+    localStorage.setItem(READLOG_KEY, JSON.stringify(log.filter(x => x.at > logCleared()))); updateLogBtn(); pushLog();
+  }
 };
 $("save").onclick = () => {
   cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0); cur.mt = Date.now();
@@ -1088,7 +1116,8 @@ function onAuthChanged(user){
   renderSyncUI();
   if (fbUnsub) { fbUnsub(); fbUnsub = null; }
   if (fbUsageUnsub) { fbUsageUnsub(); fbUsageUnsub = null; cloudUsage = null; }
-  if (user) { startSync(); watchUsage(); }
+  if (fbLogUnsub) { fbLogUnsub(); fbLogUnsub = null; }
+  if (user) { startSync(); watchUsage(); watchLog(); }
 }
 
 // 端末の記録とクラウドの記録を「まとめる」(どちらも消さない)。
