@@ -18,11 +18,13 @@
   /* ヘッダー */
   /* ヘッダーは3列(左 / タイトル / 右)。重ならず、タイトルは常に中央。幅375px(iPhone 13 mini)を基準にする */
   .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; min-height:56px; padding:calc(env(safe-area-inset-top, 0px) + 32px) 8px 0 8px; }   /* 上の端はiPhoneがぼかすので、「とりあえず」と同じ32px下げる */
-  .ttl { grid-column:2; font-size:17px; font-weight:700; white-space:nowrap; }
+  .ttl { grid-column:2; grid-row:1; font-size:17px; font-weight:700; white-space:nowrap; }
   .back { grid-column:1; justify-self:start; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--text); cursor:pointer; margin-left:-4px; }
-  .reload { grid-column:1; justify-self:start; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--sub); cursor:pointer; transition:transform .45s cubic-bezier(.2,.8,.2,1), color .2s; }
+  .reload { grid-column:1; grid-row:1; justify-self:start; width:40px; height:40px; display:grid; place-items:center; background:none; border:0; border-radius:50%; color:var(--sub); cursor:pointer; transition:transform .45s cubic-bezier(.2,.8,.2,1), color .2s; }
+  .launch { grid-column:1; grid-row:1; justify-self:start; margin-left:44px; width:40px; height:40px; display:grid; place-items:center; border-radius:50%; color:var(--sub); text-decoration:none; }
+  .launch:active { color:var(--green); }
   .reload:active { transform:rotate(-180deg); color:var(--green); }
-  .sync { grid-column:3; justify-self:end; margin-right:4px; min-width:72px; border:1px solid var(--field); background:#fff; color:var(--sub); border-radius:16px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .sync { grid-column:3; grid-row:1; justify-self:end; margin-right:4px; min-width:72px; border:1px solid var(--field); background:#fff; color:var(--sub); border-radius:16px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
   .sync.on { background:var(--green); border-color:var(--green); color:#fff; }
   .foot { margin-top:auto; text-align:center; padding:24px 16px calc(20px + env(safe-area-inset-bottom)); font-size:12px; color:var(--light); }
   .foot button { background:none; border:0; color:var(--sub); font-size:12px; padding:6px 8px; cursor:pointer; text-decoration:underline; }
@@ -188,6 +190,7 @@
       <button class="reload" id="reloadBtn" title="最新に更新" aria-label="最新に更新">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
       </button>
+      <a class="launch" href="https://nemui-neko-zzz.github.io/launcher-app/" title="アプリ一覧へ" aria-label="アプリ一覧へ"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.7"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.7"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.7"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.7"/></svg></a>
       <div class="ttl" id="homeTitle">レシート</div>
       <button class="sync" id="syncBtn" style="display:none">同期</button>
     </div>
