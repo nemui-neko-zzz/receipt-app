@@ -150,7 +150,10 @@
 
   /* 編集 */
   .form { padding:8px 16px 24px; }
-  .form label.lb { display:block; font-size:13px; color:var(--sub); margin:20px 0 8px; }
+  .form .lb .nt { margin-left:12px; font-size:12px; }
+  .form .lb .nt input { vertical-align:-2px; margin:0 3px 0 0; }
+  .form .lb .nt label { display:inline; margin:0; font-size:12px; color:var(--sub); }
+  .form label.lb, .form div.lb { display:block; font-size:13px; color:var(--sub); margin:20px 0 8px; }
   .field { width:100%; border:1px solid var(--field); background:#fff; border-radius:6px; padding:14px; font-size:16px; color:var(--text); outline:none; }
   .field:focus { border-color:var(--green); }
   /* 日付・時刻の欄: iPhoneでは幅が内容に引っ張られるので、他の欄と同じ幅・高さに固定する */
@@ -221,7 +224,7 @@
       <label class="lb" style="margin-top:8px">スポット名</label>
       <input class="field" id="eStore">
       <div class="cands" id="storeCands" hidden></div>
-      <label class="lb">購入日</label>
+      <div class="lb">購入日<span class="nt"><input type="checkbox" id="noTime"><label for="noTime">時間なし</label></span></div>
       <input class="field" id="eDate" type="datetime-local">
       <label class="lb">品目 / 金額 / ジャンル</label>
       <div id="items"></div>
@@ -548,7 +551,8 @@ let cur = null;
 function openEdit(r, img){
   cur = JSON.parse(JSON.stringify(r));
   candToken++; $("storeCands").hidden = true;
-  $("eStore").value = cur.store; $("eDate").value = cur.date + "T" + (cur.time || "00:00"); $("eTotal").value = cur.total;
+  $("eStore").value = cur.store; $("eTotal").value = cur.total;
+  $("noTime").checked = !cur.time; $("eDate").type = cur.time ? "datetime-local" : "date"; $("eDate").value = cur.time ? cur.date + "T" + cur.time : cur.date;   // 時間がないレシート(Zaim取り込みなど)は、日付だけの欄にする
   $("remove").textContent = cur.id === null ? "やめる" : "削除";
   $("note").textContent = cur.id === null ? "※お試し版: 読み取りはまだ入っていません。これはサンプルの結果です。" : "";
   renderItems(); show("edit");
@@ -608,7 +612,15 @@ $("items").addEventListener("click", e => {
   if ((it.n || Number(it.p)) && !confirm("「" + (it.n || "名前なし") + "」を消しますか?")) return;
   cur.items.splice(d,1); renderItems();
 });
-$("addItem").onclick = () => { cur.items.push({n:"",p:0,c:"その他"}); renderItems(); const f = $("items").querySelector(".item:last-child input"); if (f) f.focus(); };
+// 「時間なし」: 日付だけの欄に切り替える(もどすと、前の時刻を戻す)
+let lastTime = "";
+$("noTime").onchange = () => {
+  const v = $("eDate").value, on = $("noTime").checked;
+  if (on) { lastTime = v.slice(11, 16) || lastTime; $("eDate").type = "date"; $("eDate").value = v.slice(0, 10); }
+  else { $("eDate").type = "datetime-local"; $("eDate").value = v.slice(0, 10) + "T" + (lastTime || nowTime()); }
+};
+$("addItem").onclick = () => { const up = cur.items[cur.items.length - 1]; cur.items.push({n:"",p:0,c: up ? up.c : "その他"}); renderItems();   // 新しい品目は、すぐ上の品目のジャンルをコピーする
+  const f = $("items").querySelector(".item:last-child input"); if (f) f.focus(); };
 $("cancel").onclick = () => { if (cur && cur.id !== null) show("detail"); else backToList(); };
 $("remove").onclick = () => { if (cur.id === null) show("list"); else removeReceipt(cur.id); };
 // 読み取りログ(精度の見直し用): 最初の読み取りから直して保存した分を、この端末に貯める。「読み取りログ」ボタンでファイルに書き出す
@@ -663,7 +675,7 @@ $("logSave").onclick = () => {
   }
 };
 $("save").onclick = () => {
-  cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + "T" + nowTime()); cur.date = dt.slice(0,10); cur.time = dt.slice(11,16); cur.total = Number($("eTotal").value||0); cur.mt = Date.now();
+  cur.store = $("eStore").value.trim() || "(店名なし)"; const dt = $("eDate").value || (today(0) + ($("noTime").checked ? "" : "T" + nowTime())); cur.date = dt.slice(0,10); cur.time = $("noTime").checked ? "" : dt.slice(11,16); cur.total = Number($("eTotal").value||0); cur.mt = Date.now();
   logReadFix(cur);   // 最初の読み取りから直して保存したときは、全文と前後の結果をログに貯める
   cur.items.forEach(i => { delete i.a; }); delete cur.raw; delete cur.init; delete cur.address;   // 読み取りの全文・比較用のデータ・住所は、レシートには残さない
   if (cur.store !== "(店名なし)") [cur.phone, cur.reg].filter(Boolean).forEach(k => { storeMap[k] = cur.store; });   // 次から同じ店は自動で入る
@@ -678,11 +690,12 @@ renderList(); updateLogBtn();
 function parseReceiptText(raw, knownStores) {
   const text = String(raw || "")
     .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    .replace(/￥/g, "¥").replace(/，/g, ",").replace(/：/g, ":").replace(/／/g, "/").replace(/[・·]/g, "").replace(/言[十士]/g, "計");   // 「計」が「言十」と読まれることがある
+    .replace(/＠/g, "@").replace(/￥/g, "¥").replace(/，/g, ",").replace(/：/g, ":").replace(/／/g, "/").replace(/[・·]/g, "").replace(/言[十士]/g, "計");   // 「計」が「言十」と読まれることがある
   const nf = text.replace(/\s+/g, "");
   const lines = [];   // 1文字ずつ改行された語(「合」「計」、「領」「収」)は、つなげる
   let joinable = false;
   for (const l of text.split(/\n/).map(x => x.trim()).filter(Boolean)) {
+    if (/^,\d{3}$/.test(l) && lines.length && /^[¥]?\d{1,3}$/.test(lines[lines.length - 1])) { lines[lines.length - 1] += l; joinable = false; continue; }   // 「¥3」「,780」のように、金額が途中で改行されたものは、つなげる
     const one = /^[一-龥]$/.test(l);
     if (one && joinable) { lines[lines.length - 1] += l; continue; }
     lines.push(l); joinable = one;
@@ -722,7 +735,7 @@ function parseReceiptText(raw, knownStores) {
   let total = null, m;
   if (hasLines) {
     const TIERS = [
-      [/^[（(]?(?:合計|現計|お会計|総計|ご?請求額|税込合計|小計[＋+]税|台計|領収金額)(?![点数個])/, 6],   // 「税合計」は税額なので入れない
+      [/^[（(]?(?:合計|現計|お会計|総計|ご?請求額|税込合計|小計[＋+]税|台計|領収金額|精算金額)(?![点数個])/, 6],   // 「税合計」は税額なので入れない
       [/対象計|税込対象額/, 3],
       [/^(?:クレジット(?!売上)|電子マネー|お?支払(?!方法|区分)|カード払)/, 2],
       [/^小計/, 2],
@@ -767,7 +780,10 @@ function parseReceiptText(raw, knownStores) {
       const near = phoneIdx < 0 ? "" : [...lines.slice(Math.max(0, phoneIdx - 5), phoneIdx), lines[phoneIdx]].map(clean).filter(okStore).slice(-3).join("");
       const corpAny = lines.find(isCorp);
       const ci = lines.findIndex(l => /^コスモ石油販売/.test(l) && isCorp(l)), cosmoSS = ci >= 0 && lines[ci + 1] && okStore(lines[ci + 1]) ? lines[ci + 1].trim().replace(/ビュア/g, "ピュア") : "";   // コスモは会社名の次の行が、お店の名前(セルフピュア御殿場)
-      store = cosmoSS || corp ? (cosmoSS || corp.replace(CORP, "").trim())
+      const lastL = lines[lines.length - 1] || "", pk = /駐車場$/.test(lastL) && !/料金|サイン|ご利用/.test(lastL) && lines.length >= 2 && /^(?:アップルパーク|タイムズ|三井のリパーク|リパーク|名鉄協商|NPC|コインパーク|ナビパーク|トラストパーク)/.test(lines[lines.length - 2]) ? lines[lines.length - 2].trim() + lastL.trim() : "";   // 駐車場の領収書は、店名が最後の2行にある
+      const latin0 = lines[0] && /^[A-Za-z][A-Za-z0-9 &.'\-]{4,}$/.test(lines[0]) && lines[1] && ADDR.test(lines[1]) ? lines[0] : "";   // 1行目が英字だけの店名で、次の行が住所(FARAO ANNEX)
+      const pre = pk || (phoneIdx < 0 ? latin0 : "");
+      store = pre ? pre : cosmoSS || corp ? (cosmoSS || corp.replace(CORP, "").trim())
         : brandBranch || (near.length <= 30 ? near : "")
         || (corpAny ? corpAny.replace(CORP, "").trim() : "")
         || lines.slice(0, 6).map(clean).find(okStore) || "";
@@ -780,7 +796,7 @@ function parseReceiptText(raw, knownStores) {
   // 明細: 改行がある文字だけ。ヘッダー(店名・日付・電話など)の終わりから、最初の合計の行までを見る
   const items = [];
   if (hasLines) {
-    const totalIdx = lines.findIndex(l => /合計|小計|台計|現計|お買上(?!明細)|ご請求|お支払|内税|外税|対象額|対象計|消費税|税込/.test(l));
+    const totalIdx = lines.findIndex(l => /合計|小計|台計|現計|お買上(?!明細)|ご請求|お支払|内税|外税|対象額|対象計|消費税|税込|\d\s*[%％]\s*(?:対象|税)/.test(l));
     const end = totalIdx >= 0 ? totalIdx : lines.length;
     const HEADER = /登録番号|TEL|電話|0\d{1,4}-\d{1,4}-\d{3,4}|\d{4}[\/年.\-]\d{1,2}[\/月.\-]\d{1,2}|\d{1,2}:\d{2}|領収|納品書|レシート|レジ|会員|カード|X{4,}|\*{4,}|^No\.?\s*\d+/;
     let start = 0;
@@ -808,6 +824,9 @@ function parseReceiptText(raw, knownStores) {
       if (/^\d{8,14}$/.test(l)) { grp = "start"; return; }
       const wasGrp = grp; grp = false;
       if (/^No\.?\s*\d+$/i.test(l)) return;   // 伝票番号の行
+      if (/^\d+\s*点$/.test(l)) { grp = "pts"; return; }   // 「2点」「2 点」: このあとの名前の行(読み間違いでも)は、1つの商品名
+      if (wasGrp === "pts" && /^@/.test(l)) { grp = "pts"; return; }   // 単価(@1,540)の行は飛ばして、名前の行を待つ
+      if (wasGrp === "pts" || wasGrp === "ptsc") { if (!/^[@¥]|^\d+$/.test(l) && !PRICE.test(l) && !/^\d+\s*点$/.test(l) && /\S/.test(l)) { if (wasGrp === "ptsc" && seq.length && seq[seq.length - 1].n !== undefined) seq[seq.length - 1].n += " " + l.trim(); else seq.push({ n: l.trim() }); grp = "ptsc"; return; } }
       if ((m = /^\d{2,5}(?:-\d+){1,3}\s*([ぁ-んァ-ン一-龥A-Za-z].*)$/.exec(l)) && /[ぁ-んァ-ン一-龥]{2,}/.test(m[1]) && !/TEL|電話/.test(l)) { seq.push({ n: m[1].trim() }); return; }   // 「493-900441-000森のカードホルダー」: 先頭の商品コードを外す(名前に「カード」があっても、商品名として使う)
       if (wasGrp && isName(l) && !PRICE.test(l)) { if (wasGrp === "cont" && seq.length && seq[seq.length - 1].n !== undefined) seq[seq.length - 1].n += " " + l.trim(); else seq.push({ n: l.replace(/[※*軽]$/, "").trim() }); grp = "cont"; return; }
       if ((m = /^[-−▲△]\s*¥?\s*(\d[\d,]*)$/.exec(l)) && bi > 0 && /訂正|取消|取り消し|返品/.test(body[bi - 1])) seq.push({ cancel: num(m[1]) });   // 「訂正 -390」: 同じ金額の直前の品目を取り消す
@@ -850,7 +869,7 @@ function parseReceiptText(raw, knownStores) {
     if (!items.length) {
       const nm = {};
       lines.forEach((l, i) => {
-        const m = /^(\d{1,3}(?:,\d{3})+|\d{3,6})\s*内$/.exec(l); if (!m) return;
+        const m = /^¥?\s*(\d{1,3}(?:,\d{3})+|\d{3,6})\s*内$/.exec(l); if (!m) return;
         for (let j = i - 1; j >= Math.max(0, i - 3); j--) { if (/[ぁ-んァ-ン一-龥ー]{3,}/.test(lines[j]) && !NOISE.test(lines[j]) && !/^.{1,3}\s*\d$/.test(lines[j])) { const n = lines[j].replace(/[~～〜]/g, "〜"); nm[n] = (nm[n] || 0) + num(m[1]); break; } }
       });
       Object.keys(nm).forEach(n => items.push({ n, p: nm[n] }));
@@ -885,7 +904,10 @@ function parseReceiptText(raw, knownStores) {
     const over = items.reduce((a, i) => a + i.p, 0) - (total === null ? 0 : total);
     if (items.length && total !== null && over > 0 && !items.some(i => i.p < 0) && lines.some(l => { const d = /^[-−▲△]\s*¥?\s*(\d[\d,]*)$/.exec(l); return d && num(d[1]) === over; })) items.push({ n: "値引き", p: -over });
     // 品目が1つも取れないとき: 「…車」「料金」の行があれば、合計を金額にして1行にする(料金所の領収書)
-    if (!items.length && total !== null) { const nm = body.find(l => /車|料金|通行/.test(l) && /[ぁ-んァ-ン一-龥]{2,}/.test(l)) || lines.find(l => /^駐車場$|^駐車料金$/.test(l)); if (nm) items.push({ n: nm.replace(/^\d{3,}\s*/, "").replace(/^音通車/, "普通車"), p: total }); }
+    if (items.length && total !== null && total > 0 && items.reduce((a, i) => a + i.p, 0) !== total && lines.some(l => /駐車料金/.test(l)) && lines.some(l => /精算(?:金額|日時)/.test(l))) items.length = 0;   // 駐車場の控えで、品目が合計と合わない(ARC…のごみ)ときは、作り直す
+    if (!items.length && total !== null) { const nm = lines.some(l => /駐車料金/.test(l)) && !body.some(l => /^駐車料金$/.test(l)) ? "駐車料金" : body.find(l => /車|料金|通行/.test(l) && /[ぁ-んァ-ン一-龥]{2,}/.test(l)) || lines.find(l => /^駐車場$|^駐車料金$/.test(l)); if (nm) items.push({ n: nm.replace(/^\d{3,}\s*/, "").replace(/^音通車/, "普通車"), p: total }); }
+    // 合計が「お預り」(「合計」の金額が読み間違い)で、お釣りを引いた金額が品目の合計と合うときは、その金額を合計にする
+    if (items.length >= 2 && total !== null) { const om = /釣[^\d¥]{0,3}¥?(\d[\d,]*)/.exec(nf), isum0 = items.reduce((a, i) => a + i.p, 0); if (om && total !== isum0 && total - num(om[1]) === isum0) total = isum0; }
     // 合計が品目の合計より大きく、その差が「税額」の行の金額(か、2つの合計)と同じなら、「消費税」の品目を足す(外税のレシート)
     const isum = items.reduce((a, i) => a + i.p, 0);
     if (items.length && total !== null && isum !== total) {
@@ -900,9 +922,10 @@ function parseReceiptText(raw, knownStores) {
     }
   }
   // 店名検索の手がかり: 電話番号(TEL表記を優先)・住所(都道府県から番地まで)・インボイス登録番号
-  const phone = ((/(?:TEL|Tel|tel|電話)[:：]?(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nf) || /(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nf)) || [])[1] || "";
+  const nfp = nf.replace(/\d{4}[\/.\-]\d{1,2}[\/.\-]\d{1,2}/g, "");   // 日付(2026-11-2313:33)の中の「026-11-2313」を電話番号にしない
+  const phone = ((/(?:TEL|Tel|tel|電話)[:：]?(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nfp) || /(0\d{1,4}-\d{1,4}-\d{3,4})/.exec(nfp)) || [])[1] || "";
   const am = /(北海道|東京都|京都府|大阪府|(?:青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|神奈川|新潟|富山|石川|福井|山梨|長野|岐阜|静岡|愛知|三重|滋賀|兵庫|奈良|和歌山|鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|大分|宮崎|鹿児島|沖縄)県)([^\d:]{1,15}?)(\d{1,4}(?:(?:-|丁目|番地?|の)\d{1,4}){0,3})/.exec(nf);
-  let address = am ? am[0] : "";
+  let address = am && /[市区町村郡]/.test(am[2]) ? am[0] : "";   // 「静岡県産…」のような商品名を住所にしない
   if (!address && hasLines) address = lines.find(l => /^[^\s\d]{2,6}[市区町村][^\d]{0,12}\d{1,4}(?:-\d{1,4}){0,3}$/.test(l)) || "";
   const reg = ((/T(\d{13})/.exec(nf)) || [])[1] ? "T" + /T(\d{13})/.exec(nf)[1] : "";
   return { store, date, time, total, items, phone, address, reg };
@@ -920,7 +943,7 @@ function resultBlock(o){
   return L.join("\n");
 }
 function copyText(){
-  const dt = $("eDate").value || "", now = { store:$("eStore").value, phone:cur.phone, address:cur.address, reg:cur.reg, date:dt.slice(0, 10), time:dt.slice(11, 16), total:Number($("eTotal").value || 0), items:cur.items };
+  const dt = $("eDate").value || "", now = { store:$("eStore").value, phone:cur.phone, address:cur.address, reg:cur.reg, date:dt.slice(0, 10), time:$("noTime").checked ? "" : dt.slice(11, 16), total:Number($("eTotal").value || 0), items:cur.items };
   const norm = o => JSON.stringify([o.store, o.date, o.time, Number(o.total), o.items.map(i => [i.n, Number(i.p), i.c])]);
   const parts = [];
   if (cur.raw) parts.push("【読み取った全文】\n" + cur.raw.trim());
